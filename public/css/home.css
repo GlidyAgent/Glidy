@@ -99,3 +99,4 @@ details p { color: var(--text-2); margin: 10px 0 0; }
 }
 @media (prefers-reduced-motion: reduce) { .marquee .track, .float-card, .glide-svg .bars rect { animation: none; } }
 @media (max-width: 760px) { .logo small { display: none; } .btn-pill { white-space: nowrap; } .hd { gap: 12px; } }
+.float-card[hidden], .bubble[hidden] { display: none; }

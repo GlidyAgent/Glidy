@@ -184,4 +184,7 @@ export const server = createServer(handler);
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   process.on("SIGTERM", () => server.close(() => process.exit(0)));
   server.listen(PORT, HOST, () => console.log(`Glidy on http://${HOST}:${PORT}  (AI chat: ${llmOn() ? "on" : "off, parser mode"}${MOCK ? ", MOCK data" : ""})`));
+  // Keep the live pool list warm, so the first visitor never waits on GeckoTerminal's rate limit.
+  const warm = () => TOOL_MAP.list_lp_pools.run({ sort: "apr", limit: 60 }).catch(() => {});
+  warm(); setInterval(warm, 50_000).unref();
 }

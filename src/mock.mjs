@@ -1,6 +1,8 @@
 // GLIDY_MOCK=1: deterministic stand-ins for the chain RPC and the KyberSwap API, so the whole app
 // (chat → ticket → Checkpoint → build) runs offline and in tests. Never use for real trades.
-export const MOCK = process.env.GLIDY_MOCK === "1";
+// Never on a hosting platform: a deployed Glidy always reads and builds against the real Robinhood Chain.
+const ON_PLATFORM = !!(process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT || process.env.RENDER || process.env.FLY_APP_NAME || process.env.DYNO);
+export const MOCK = process.env.GLIDY_MOCK === "1" && !ON_PLATFORM;
 
 // USD prices for mock quotes, and a pool depth (USD) that sets the simulated price impact.
 const PRICES = { ETH: 3200, WETH: 3200, USDC: 1, USDT: 1, DAI: 1, USDG: 1, CBBTC: 95000, WBTC: 95000, ARB: 0.6, NVDA: 180, TSLA: 400, SPY: 600, AAPL: 230 };
