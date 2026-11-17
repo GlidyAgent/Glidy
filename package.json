@@ -1,0 +1,24 @@
+{
+  "name": "glidy",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Glidy: the LP agent for Robinhood Chain. Best pools, ranges picked for you, every deposit checked, you sign every move.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "serve": "node server.mjs",
+    "dev": "node --watch-path=src --watch-path=server.mjs server.mjs",
+    "mock": "GLIDY_MOCK=1 node server.mjs",
+    "test": "GLIDY_MOCK=1 node --test test/*.test.mjs",
+    "token": "node scripts/token.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0"
+  }
+}

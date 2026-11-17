@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glidy — The LP agent for Robinhood Chain</title>
+  <meta name="description" content="Glidy finds the best Uniswap v3 pools on Robinhood Chain, sets your range, checks every deposit and helps you collect fees and rebalance. You sign every move.">
+  <meta name="theme-color" content="#0c070b">
+  <meta property="og:title" content="Glidy — Your liquidity, gliding to the best pool">
+  <meta property="og:description" content="The LP agent for Robinhood Chain: pools ranked by fee APR, ranges picked for you, every deposit checked, fees collected in one tap.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/img/og.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="/img/og.png">
+  <meta name="twitter:site" content="@glidyagent">
+  <link rel="icon" href="/img/glidy.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/inter-tight.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/fonts.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/home.css">
+  <script>try { const t = localStorage.getItem("glidy.theme"); if (t) document.documentElement.dataset.theme = t; } catch {}</script>
+</head>
+<body class="home">
+  <a class="sr" href="#main">Skip to content</a>
+
+  <header class="hd" id="hd">
+    <a class="logo" href="/" aria-label="Glidy home"><img src="/img/glidy.svg" alt="" width="32" height="32"><span>Glidy</span><small>LP agent · Robinhood Chain</small></a>
+    <nav class="hd-nav hide-sm" aria-label="Sections"><a href="#how">How it works</a><a href="#pools">Pools</a><a href="#checkpoint">Checkpoint</a><a href="#faq">FAQ</a></nav>
+    <div class="hd-end">
+      <a class="chip-live hide-sm" id="navLive" href="https://robinhoodchain.blockscout.com" target="_blank" rel="noopener"><i class="live-dot"></i><span>Robinhood Chain · live</span></a>
+      <a class="btn-pill solid" href="/app/">Open app ↗</a>
+      <button class="icon-theme" id="themeBtn" type="button" aria-label="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow-pill"><i class="live-dot"></i> Uniswap v3 · Robinhood Chain</span>
+        <h1>Your liquidity,<br><span class="grad">gliding</span> to the best pool.</h1>
+        <p class="lede">Glidy is an LP agent. It ranks every pool by fee income and risk, picks a range around the live price, checks the deposit before you sign, and tells you when to collect or rebalance. It never holds your keys.</p>
+        <div class="ctas"><a class="btn-pill solid big" href="/app/#/pools">Find a pool ↗</a><a class="btn-pill" href="/app/#/positions">My positions</a></div>
+        <div class="hero-stats" id="heroStats">
+          <div><b id="hsApr">–</b><span>top fee APR now</span></div>
+          <div><b id="hsTvl">–</b><span>TVL in top pools</span></div>
+          <div><b id="hsPools">–</b><span>pools tracked</span></div>
+        </div>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <svg viewBox="0 0 520 440" class="glide-svg">
+          <defs>
+            <linearGradient id="gg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#fbbf24"/></linearGradient>
+            <linearGradient id="trail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f472b6" stop-opacity="0"/><stop offset="1" stop-color="#f472b6" stop-opacity=".8"/></linearGradient>
+          </defs>
+          <rect x="150" y="40" width="210" height="360" rx="14" class="band"/>
+          <line x1="150" y1="40" x2="150" y2="400" class="edge"/><line x1="360" y1="40" x2="360" y2="400" class="edge"/>
+          <g class="bars" id="heroBars"></g>
+          <path class="price" d="M0 330 C70 330 110 170 200 160 S330 250 380 200 S470 120 520 140"/>
+          <g class="plane"><path d="M-34 10 L34 -26 L12 32 L2 8Z" fill="url(#gg)"/><path d="M2 8 L34 -26" stroke="#0c070b" stroke-width="3"/></g>
+          <path class="trail" d="M-60 30 C-30 20 -10 20 -2 24"/>
+        </svg>
+        <div class="float-card fc1"><span class="tag pass">in range</span><b>WETH / USDG</b><small>fees ready <em class="up">+$12.40</em></small></div>
+        <div class="float-card fc2"><span class="tag warn">out of range</span><b>NVDA / WETH</b><small>Glidy: rebalance ±10%</small></div>
+      </div>
+    </section>
+
+    <section class="marquee" aria-label="Works with"><div class="track" id="worksTrack"></div></section>
+
+    <section class="sec" id="how">
+      <span class="kicker">How it works</span>
+      <h2>Three moves. <em>You sign each one.</em></h2>
+      <div class="cards3">
+        <article class="fcard"><b class="num">01</b><h3>Pick the pool</h3><p>Every Uniswap v3 pool on Robinhood Chain ranked by fee APR, depth and volume. Coins, USDG and tokenized stocks like NVDA and TSLA. Thin pools are flagged, not hidden.</p></article>
+        <article class="fcard"><b class="num">02</b><h3>Set the range</h3><p>Say how much you put in and how wide: ±2% for calm pairs, ±20% for stocks, wider for new coins. Glidy sizes the other token from the live price and snaps it to the pool's ticks.</p></article>
+        <article class="fcard"><b class="num">03</b><h3>Glide</h3><p>Watch in-range status and fees in real time. Collect in one tap. When price leaves your range, Glidy prepares the rebalance: remove, then a fresh range around the price.</p></article>
+      </div>
+    </section>
+
+    <section class="sec" id="pools">
+      <div class="sec-head"><div><span class="kicker"><i class="live-dot"></i> Live</span><h2>Best pools <em>right now</em></h2></div><a class="btn-pill" href="/app/#/pools">All pools ↗</a></div>
+      <div class="pool-list" id="poolList"><div class="skeleton"></div></div>
+      <p class="fine">Fee APR = 24h volume × fee ÷ TVL × 365, for full-range liquidity. A tighter range earns more while price stays inside it. Not a promise: volume changes.</p>
+    </section>
+
+    <section class="sec split" id="checkpoint">
+      <div>
+        <span class="kicker">The Checkpoint</span>
+        <h2>No ticket until<br><em>the deposit checks out.</em></h2>
+        <p>Every add runs the same checks first, on the live chain. If one fails, there is no ticket. If it passes, you still sign it yourself, after one more check right before signing.</p>
+        <a class="btn-pill solid" href="/app/">Try it ↗</a>
+      </div>
+      <ul class="checklist">
+        <li><b>Official pool</b><span>Created by the Uniswap v3 factory on Robinhood Chain.</span></li>
+        <li><b>Depth & fee income</b><span>Too thin is blocked; low volume is warned.</span></li>
+        <li><b>Token risk</b><span>Mint, blacklist, fee setters, proxies and live owners in the bytecode.</span></li>
+        <li><b>Range vs volatility</b><span>Warns when your range is tighter than the last 24h move.</span></li>
+        <li><b>Impermanent loss</b><span>What a move to the edge of your range costs vs holding.</span></li>
+        <li><b>Balances & simulation</b><span>The exact deposit, simulated from your wallet.</span></li>
+        <li><b>Your limits</b><span>Per-deposit and daily caps, a pause and a kill switch.</span></li>
+      </ul>
+    </section>
+
+    <section class="sec" id="agent">
+      <span class="kicker">The agent</span>
+      <h2>Just ask. <em>In plain words.</em></h2>
+      <div class="chat-demo">
+        <div class="bubble user">best pools for NVDA?</div>
+        <div class="bubble bot">NVDA / WETH 0.3% looks best: about 150% fee APR on $560K TVL. NVDA moved 2.4% today, so I'd use ±10%. Want a ticket for 0.05 ETH?</div>
+        <div class="bubble user">yes</div>
+        <div class="bubble bot"><b>Ticket ready.</b> Add 0.05 ETH + 0.21 NVDA, range ±10%. Checkpoint: pass. Sign it in your wallet.</div>
+      </div>
+      <p class="fine">Also over REST and MCP: list_lp_pools, lp_positions, check_lp, prepare_lp_add, prepare_lp_collect, prepare_lp_remove.</p>
+    </section>
+
+    <section class="sec" id="faq">
+      <span class="kicker">FAQ</span>
+      <h2>Questions</h2>
+      <details><summary>Does Glidy hold my funds or keys?</summary><p>No. Glidy prepares unsigned transactions. Your wallet signs them. Your position is a Uniswap v3 NFT in your own wallet.</p></details>
+      <details><summary>Which pools?</summary><p>Uniswap v3 on Robinhood Chain (chain 4663): WETH, USDG, tokenized stocks and ETFs, and new coins. Any pool from the official factory works.</p></details>
+      <details><summary>Can I lose money?</summary><p>Yes. Prices move: impermanent loss, a range that goes out of range, and risky tokens. The Checkpoint shows these before you sign, but it is a set of checks, not a guarantee.</p></details>
+      <details><summary>Do I need both tokens?</summary><p>You choose one side and an amount; Glidy tells you how much of the other you need. Native ETH is used for the WETH side. Swap first in the app if you are short.</p></details>
+    </section>
+
+    <section class="cta-end">
+      <img src="/img/glidy.svg" alt="" width="72" height="72">
+      <h2>Ready to <span class="grad">glide</span>?</h2>
+      <a class="btn-pill solid big" href="/app/">Open Glidy ↗</a>
+    </section>
+  </main>
+
+  <footer class="ft">
+    <span>© 2026 Glidy · Not financial advice; providing liquidity can lose money.</span>
+    <nav><a href="https://x.com/glidyagent" target="_blank" rel="noopener">X @glidyagent</a><a href="https://github.com/GlidyAgent/glidy" target="_blank" rel="noopener">GitHub</a><a href="/app/">App</a><a href="/app/#/api">API</a></nav>
+  </footer>
+
+  <script type="module" src="/js/home.js"></script>
+</body>
+</html>
