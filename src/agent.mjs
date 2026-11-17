@@ -86,12 +86,17 @@ export async function chat({ sessionId, message, address, ip }) {
     return { sessionId, reply: "You reached today's message limit. It resets at 00:00 UTC.", tickets: [], tools: [], mode: "limit" };
   }
   const ctx = { address: address || null, owner: address || null, surface: "chat" };
-  const tickets = [], used = [];
-  const onResult = (name, out) => { used.push(name); if (name === "prepare_swap" || name.startsWith("prepare_lp_")) tickets.push(out); };
+  const tickets = [], used = [], cards = {};
+  const onResult = (name, out) => {
+    used.push(name);
+    if (name === "prepare_swap" || name.startsWith("prepare_lp_")) tickets.push(out);
+    if (name === "list_lp_pools" && out?.pools) cards.pools = out.pools.slice(0, 5);
+    if (name === "lp_positions" && out?.positions) cards.positions = out.positions.slice(0, 6);
+  };
 
   if (!llmOn()) {
     const r = await parseAndRun(text, ctx, onResult);
-    return { sessionId: null, reply: r, tickets, tools: used, mode: "parser" };
+    return { sessionId: null, reply: r, tickets, tools: used, cards, mode: "parser" };
   }
 
   const { id, s } = session(sessionId);
@@ -136,9 +141,9 @@ export async function chat({ sessionId, message, address, ip }) {
     s.messages.length = mark;
     console.error("Anthropic API error:", e.status, String(e.message).slice(0, 300));
     const r = await parseAndRun(text, ctx, onResult);
-    return { sessionId: id, reply: `(AI chat is unavailable: ${aiProblem(e)}. Answering in command mode.)\n\n${r}`, tickets, tools: used, mode: "parser", aiError: aiProblem(e) };
+    return { sessionId: id, reply: `(AI chat is unavailable: ${aiProblem(e)}. Answering in command mode.)\n\n${r}`, tickets, tools: used, cards, mode: "parser", aiError: aiProblem(e) };
   }
-  return { sessionId: id, reply, tickets, tools: used, mode: "llm", model: MODEL };
+  return { sessionId: id, reply, tickets, tools: used, cards, mode: "llm", model: MODEL };
 }
 
 // ---------- deterministic parser (no API key) ----------
@@ -163,7 +168,17 @@ export async function parseAndRun(text, ctx, onResult = () => {}) {
   // LP: "pools", "best pools", "pool terbaik"
   if (/\b(pools?|apr|yield|lp)\b/i.test(t) && /\b(best|top|list|show|terbaik|daftar|apr|yield|pools)\b/i.test(t) && !/\b(add|tambah|deposit|masuk)/i.test(t)) {
     const r = await call("list_lp_pools", { sort: /\b(tvl|depth|liquid)/i.test(t) ? "tvl" : /\bvolume\b/i.test(t) ? "volume" : "apr", limit: 8 });
-    return "Uniswap v3 pools on Robinhood Chain for LPs:\n" + r.pools.map((p) => `• ${p.name}: APR ~${(p.feeAprPct ?? 0).toFixed(1)}%, TVL ${usd(p.tvlUsd)}, 24h vol ${usd(p.volume24hUsd)} — ${p.pool}`).join("\n") + "\nSay \"add 0.05 ETH to <pool address> 10%\" to make a ticket.";
+    const by = r.pools[0] ? (/\b(tvl|depth|liquid)/i.test(t) ? "depth" : /\bvolume\b/i.test(t) ? "24h volume" : "fee APR") : "";
+    return `Top Uniswap v3 pools on Robinhood Chain by ${by}, live:\n` + r.pools.map((p) => `• ${p.name}: APR ~${(p.feeAprPct ?? 0).toFixed(1)}%, TVL ${usd(p.tvlUsd)}, 24h vol ${usd(p.volume24hUsd)} — ${p.pool}`).join("\n") + "\nTap a pool to open it, or say \"add 0.05 ETH to <pool address> 10%\" and I'll write the ticket.";
+  }
+  // "collect my fees", "fees ready", "panen fee" (no position id): show what can be collected
+  if (/\b(fees?|collect|claim|harvest|panen|klaim)\b/i.test(t) && !/\d{3,}/.test(t)) {
+    if (!ctx.address) return "Connect your wallet first, then ask again.";
+    const r = await call("lp_positions", {});
+    const ready = r.positions.filter((p) => p.fees0 + p.fees1 > 0);
+    if (!ready.length) return "No uncollected fees in your Uniswap v3 positions on Robinhood Chain right now.";
+    const total = ready.reduce((s, p) => s + (p.feesUsd || 0), 0);
+    return `You have ${usd(total)} in fees ready across ${ready.length} position${ready.length > 1 ? "s" : ""}. Tap Collect on one below, or say "collect <id>".`;
   }
   if (/\b(positions?|posisi|my lp|lp saya|lp ku|posisiku)\b/i.test(t)) {
     if (!ctx.address) return "Connect your wallet first, then ask again.";

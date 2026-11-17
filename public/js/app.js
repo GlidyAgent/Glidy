@@ -25,6 +25,7 @@ async function boot() {
   $("#walletBtn").onclick = onWallet;
   $("#askBtn").onclick = () => openDrawer();
   $("#drawerClose").onclick = closeDrawer;
+  $("#chatNew").onclick = welcome;
   $("#scrim").onclick = () => { closeDrawer(); document.body.classList.remove("nav-open"); };
   $("#menuBtn").onclick = () => { document.body.classList.toggle("nav-open"); $("#scrim").hidden = !document.body.classList.contains("nav-open"); };
   document.addEventListener("keydown", (e) => {
@@ -33,6 +34,7 @@ async function boot() {
   });
   $("#chatForm").onsubmit = (e) => { e.preventDefault(); sendChat(); };
   $("#chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+  $("#chatInput").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(140, e.target.scrollHeight) + "px"; });
   window.ethereum?.on?.("accountsChanged", async (accs) => {
     if (state.address && accs[0]?.toLowerCase() !== state.address) { await disconnectWallet().catch(() => {}); renderWallet(); route(); toast("Wallet changed. Sign in again."); }
   });
@@ -696,44 +698,119 @@ async function signTicket(t, render) {
 
 // ---------------- agent drawer ----------------
 
-let sessionId = null;
+let sessionId = null, busy = false;
+
+const ACTIONS = [
+  { q: "best pools", t: "Best pools now", s: "Ranked by fee APR", i: '<path d="M3 15c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><path d="M12 3v8M8 7l4 4 4-4"/>' },
+  { q: "my positions", t: "My positions", s: "Range, value, fees", i: '<path d="M5 4v16M19 4v16"/><path d="M3 16c4 0 5-8 9-8s5 8 9 8"/>' },
+  { q: "collect my fees", t: "Fees ready", s: "What I can collect", i: '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 10.5c0-1.5 6-1.5 6 0s-6 1.5-6 3 6 1.5 6 0"/>' },
+  { q: "pools by tvl", t: "Deepest pools", s: "Safest liquidity", i: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' },
+];
+const TOOL_LABEL = {
+  list_lp_pools: "Ranked Uniswap v3 pools", lp_positions: "Read your positions", pool_state: "Read the pool", check_lp: "Ran the LP Checkpoint",
+  prepare_lp_add: "Prepared a deposit ticket", prepare_lp_collect: "Prepared a collect ticket", prepare_lp_remove: "Prepared a remove ticket",
+  prepare_swap: "Prepared a swap ticket", quote_swap: "Quoted a swap", check_token: "Checked the token", token_health: "Read the bytecode",
+  get_portfolio: "Read your wallet", get_balance: "Read a balance", get_policy: "Read your limits", stock_prices: "Read stock prices",
+  onchain_pools: "Read live pools", onchain_token: "Read the token", chain_status: "Read the chain",
+};
+const THINKING = ["Reading Robinhood Chain…", "Ranking pools by fee income…", "Checking ranges and risk…", "Putting it together…"];
 
 function openDrawer(prefill) {
   if (!state.address) { document.querySelectorAll(".nav a").forEach((x) => x.classList.remove("on")); gate("ask"); window.scrollTo(0, 0); return; }
   $("#drawer").classList.add("open"); $("#drawer").setAttribute("aria-hidden", "false"); $("#scrim").hidden = false;
-  const log = $("#chatLog");
-  if (!log.children.length) addMsg("bot", state.health?.llm
-    ? "Ask me for the best pools, a range for a pair, your positions, or to add, collect, remove or rebalance liquidity. I prepare tickets; you sign them."
-    : "AI chat is off on this server, so I take commands:\n• best pools · pools by tvl · my positions\n• add 0.05 ETH to 0x<pool> 10%\n• collect <id> · remove <id> · rebalance <id>\n• swap 0.01 ETH to USDG · check 0x…");
+  if (!$("#chatLog").children.length) welcome();
   if (prefill != null) { $("#chatInput").value = prefill; if (prefill) sendChat(); }
   $("#chatInput").focus();
 }
 function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawer").setAttribute("aria-hidden", "true"); $("#scrim").hidden = !document.body.classList.contains("nav-open"); }
 
-function addMsg(who, text, extra = "") {
+function welcome() {
+  sessionId = null;
+  const hour = new Date().getHours();
+  $("#chatLog").innerHTML = `<div class="ag-hello">
+    <div class="ag-orb"><img src="/img/glidy.svg" alt="" width="56" height="56"></div>
+    <h3>${hour < 12 ? "gm" : hour < 18 ? "Good afternoon" : "Good evening"}, ${esc(short(state.address))}</h3>
+    <p>I'm Glidy, your LP agent on Robinhood Chain. I find pools, pick ranges, run the Checkpoint and write tickets. You sign every move.</p>
+    <div class="ag-actions">${ACTIONS.map((a) => `<button type="button" class="ag-act" data-q="${esc(a.q)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${a.i}</svg><b>${esc(a.t)}</b><small>${esc(a.s)}</small></button>`).join("")}</div>
+    ${state.health?.llm ? "" : `<p class="ag-note">Command mode: try “add 0.05 ETH to 0x… 10%”, “collect 1234”, “rebalance 1234”.</p>`}
+  </div>`;
+  $("#chatLog").querySelectorAll(".ag-act").forEach((b) => (b.onclick = () => ask(b.dataset.q)));
+  suggest(["best pools", "my positions", "pools by volume"]);
+}
+const ask = (q) => { $("#chatInput").value = q; sendChat(); };
+
+function suggest(list) {
+  $("#chatSuggest").innerHTML = list.map((q) => `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join("");
+  $("#chatSuggest").querySelectorAll("button").forEach((b) => (b.onclick = () => ask(b.dataset.q)));
+}
+
+/** Plain text from the agent → safe HTML: bold, bullet lists, pool addresses as links, position ids as chips. */
+function richText(text, { hideLists = false } = {}) {
+  const lines = String(text).split("\n");
+  let html = "", inList = false;
+  for (const raw of lines) {
+    const bullet = /^\s*[•\-*]\s+/.test(raw);
+    if (bullet && hideLists) continue;
+    let l = esc(raw.replace(/^\s*[•\-*]\s+/, ""))
+      .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+      .replace(/(0x[0-9a-fA-F]{40})/g, (a) => `<a class="addr" href="#/pool?address=${a}">${a.slice(0, 6)}…${a.slice(-4)}</a>`)
+      .replace(/(^|\s)#(\d{3,9})\b/g, '$1<span class="pid">#$2</span>');
+    if (bullet) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${l}</li>`; continue; }
+    if (inList) { html += "</ul>"; inList = false; }
+    html += l ? `<p>${l}</p>` : "";
+  }
+  return html + (inList ? "</ul>" : "");
+}
+
+function addMsg(who, html) {
   const d = document.createElement("div");
   d.className = `msg ${who}`;
-  d.textContent = text;
-  if (extra) d.insertAdjacentHTML("beforeend", extra);
+  d.innerHTML = who === "bot" ? `<span class="ag-av sm"><img src="/img/glidy.svg" alt=""></span><div class="msg-body">${html}</div>` : html;
   $("#chatLog").append(d);
   $("#chatLog").scrollTop = 1e9;
   return d;
 }
 
+function cardsHtml(c = {}) {
+  let h = "";
+  if (c.pools?.length) h += `<div class="cc-list">${c.pools.map((p, i) => `<a class="cc-pool" href="#/pool?address=${esc(p.pool)}">
+    <span class="cc-rank">${i + 1}</span>${pair(p.base, p.quote)}<span class="cc-main"><b>${esc(p.base.symbol)} / ${esc(p.quote.symbol)}</b><small>${p.feePct}% · TVL ${usd(p.tvlUsd)} · vol ${usd(p.volume24hUsd)}</small></span>
+    <span class="cc-apr"><b class="apr">${pct(p.feeAprPct, 0)}</b><small>APR</small></span><span class="cc-go">Add →</span></a>`).join("")}</div>`;
+  if (c.positions?.length) h += `<div class="cc-list">${c.positions.map((p) => `<div class="cc-pos">
+    <div class="row between">${pair(p.token0, p.token1)}<span class="cc-main"><b>${esc(p.token0.symbol)} / ${esc(p.token1.symbol)}</b><small>#${esc(p.tokenId)} · ${p.feePct}%</small></span>${rangeTag(p)}</div>
+    <div class="row between cc-nums"><span><small>Value</small>${usd(p.valueUsd)}</span><span><small>Fees ready</small><b class="up">${usd(p.feesUsd)}</b></span>
+    <span class="cc-btns">${p.fees0 + p.fees1 > 0 ? `<button type="button" class="btn sm primary" data-q="collect ${esc(p.tokenId)}">Collect</button>` : ""}${!p.closed && !p.inRange ? `<button type="button" class="btn sm" data-q="rebalance ${esc(p.tokenId)}">Rebalance</button>` : ""}</span></div></div>`).join("")}</div>`;
+  return h;
+}
+
 async function sendChat() {
   const input = $("#chatInput");
   const text = input.value.trim();
-  if (!text) return;
-  input.value = "";
-  addMsg("user", text);
-  const wait = addMsg("bot thinking", "Working…");
+  if (!text || busy) return;
+  busy = true; input.value = ""; $("#chatSend").disabled = true;
+  $("#chatLog").querySelector(".ag-hello")?.classList.add("small");
+  addMsg("user", esc(text));
+  const wait = addMsg("bot", `<div class="ag-typing"><span class="dots"><i></i><i></i><i></i></span><span class="ag-status">${THINKING[0]}</span></div>`);
+  let k = 0; const rot = setInterval(() => { const s = wait.querySelector(".ag-status"); if (s) s.textContent = THINKING[++k % THINKING.length]; }, 1600);
+  const t0 = performance.now();
   try {
     const r = await api("/chat", { method: "POST", body: { message: text, sessionId } });
     sessionId = r.sessionId || sessionId;
-    wait.remove();
-    addMsg("bot", r.reply || "(no reply)", r.tools?.length ? `<span class="tools">tools: ${r.tools.map(esc).join(", ")}</span>` : "");
-    for (const t of r.tickets || []) { $("#chatLog").append(ticketCard(t)); $("#chatLog").scrollTop = 1e9; }
-  } catch (e) { wait.remove(); addMsg("bot", `Error: ${e.message}`); }
+    clearInterval(rot); wait.remove();
+    const secs = ((performance.now() - t0) / 1000).toFixed(1);
+    const tools = [...new Set(r.tools || [])];
+    const chips = tools.length ? `<div class="ag-tools">${tools.map((n) => `<span class="ag-tool"><i>✓</i>${esc(TOOL_LABEL[n] || n)}</span>`).join("")}<span class="ag-time">${secs}s</span></div>` : "";
+    const hasCards = !!(r.cards?.pools?.length || r.cards?.positions?.length);
+    const m = addMsg("bot", chips + richText(r.reply || "(no reply)", { hideLists: hasCards && r.mode === "parser" }) + cardsHtml(r.cards));
+    m.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => ask(b.dataset.q)));
+    for (const t of r.tickets || []) { const w = document.createElement("div"); w.className = "msg ticket-msg"; w.append(ticketCard(t)); $("#chatLog").append(w); }
+    $("#chatLog").scrollTop = 1e9;
+    const pos = r.cards?.positions || [];
+    suggest(r.cards?.pools?.length ? ["my positions", "pools by tvl", "pools by volume"]
+      : pos.length ? [pos.find((p) => p.fees0 + p.fees1 > 0) && `collect ${pos.find((p) => p.fees0 + p.fees1 > 0).tokenId}`, pos.find((p) => !p.closed && !p.inRange) && `rebalance ${pos.find((p) => !p.closed && !p.inRange).tokenId}`, "best pools"].filter(Boolean)
+      : r.tickets?.length ? ["my positions", "best pools"] : ["best pools", "my positions", "my limits"]);
+  } catch (e) { clearInterval(rot); wait.remove(); addMsg("bot", `<p class="down">${esc(e.message)}</p>`); }
+  finally { busy = false; $("#chatSend").disabled = false; input.focus(); }
 }
 
 boot().catch((e) => { view.innerHTML = `<div class="empty">Could not start: ${esc(e.message)}</div>`; });
