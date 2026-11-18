@@ -97,30 +97,61 @@ async function onWallet() {
 const OPEN_ROUTES = new Set();
 const ROUTE_NAMES = { desk: "The desk", pools: "Pools", pool: "Pool", positions: "My positions", swap: "Swap", check: "Checkpoint", live: "Onchain live", new: "New pairs", stocks: "Stocks", token: "Token", portfolio: "Portfolio", limits: "Limits", journal: "Journal", api: "API & MCP", ask: "The agent" };
 
+const ICON = {
+  lock: '<rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  sign: '<path d="M4 20h16"/><path d="M6 16l9.5-9.5a2.1 2.1 0 0 1 3 3L9 19H6z"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3"/>',
+  pools: '<path d="M3 15c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><path d="M3 19c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><path d="M12 3v8M8 7l4 4 4-4"/>',
+  range: '<path d="M5 4v16M19 4v16"/><path d="M3 16c4 0 5-8 9-8s5 8 9 8"/>',
+  agent: '<path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/>',
+  check: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+};
+const ico = (k, s = 18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+
 function gate(r) {
-  const hasWallet = !!window.ethereum;
+  const eth = window.ethereum;
   const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
   const dappUrl = location.host + location.pathname + location.hash;
+  const name = !eth ? null : eth.isRabby ? "Rabby" : eth.isCoinbaseWallet ? "Coinbase Wallet" : eth.isMetaMask ? "MetaMask" : eth.isOkxWallet || eth.isOKExWallet ? "OKX Wallet" : "Browser wallet";
+  const opt = (label, sub, mono, attrs, tag = "") => `<${attrs.startsWith("href") ? "a" : "button type=\"button\""} class="wopt" ${attrs}><span class="wo-mono">${mono}</span><span class="wo-txt"><b>${label}</b><small>${sub}</small></span>${tag}<span class="wo-go">${ico("arrow", 16)}</span></${attrs.startsWith("href") ? "a" : "button"}>`;
+  const options = eth
+    ? opt(`Continue with ${name}`, "Sign one message to enter", name[0], 'id="gateConnect"', '<span class="wo-tag">Detected</span>')
+    : mobile
+      ? opt("MetaMask", "Open Glidy in the MetaMask app", "M", `href="https://metamask.app.link/dapp/${esc(dappUrl)}"`) + opt("Coinbase Wallet", "Open Glidy in Coinbase Wallet", "C", `href="https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(location.href)}"`)
+      : opt("Install MetaMask", "Then reload this page", "M", 'href="https://metamask.io/download/" target="_blank" rel="noopener"') + opt("Install Rabby", "Then reload this page", "R", 'href="https://rabby.io" target="_blank" rel="noopener"');
   view.innerHTML = `
-    <section class="gate">
-      <div class="gate-card card">
-        <img src="/img/glidy.svg" alt="" width="56" height="56" style="border-radius:14px">
-        <span class="eyebrow">${esc(ROUTE_NAMES[r] || "Glidy")} is locked</span>
-        <h1>Connect your wallet<br><em>to start gliding.</em></h1>
-        <p>Signing in is a free signature over a one-time message. It cannot move funds, and Glidy never sees your keys.</p>
-        <button class="btn primary" id="gateConnect" type="button" style="padding:14px 22px">${hasWallet ? "Connect wallet" : "Connect wallet"}</button>
-        ${!hasWallet ? `<p class="muted" style="font-size:13.5px;margin:4px 0 0">No browser wallet found. ${mobile
-          ? `Open Glidy in your wallet app: <a href="https://metamask.app.link/dapp/${esc(dappUrl)}" style="text-decoration:underline">MetaMask</a> · <a href="https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(location.href)}" style="text-decoration:underline">Coinbase Wallet</a>`
-          : `Install <a href="https://metamask.io/download/" target="_blank" rel="noopener" style="text-decoration:underline">MetaMask</a> or <a href="https://rabby.io" target="_blank" rel="noopener" style="text-decoration:underline">Rabby</a>, then come back.`}</p>` : ""}
-        <ul class="gate-list">
-          <li>The best Uniswap v3 pools on Robinhood Chain, ranked by fee APR</li>
-          <li>Add liquidity with a range picked for you, checked before you sign</li>
-          <li>Your positions: in range or not, fees ready, one-click collect and rebalance</li>
-          <li>Ask the agent; it writes tickets you sign</li>
+    <section class="gate2">
+      <div class="g-left">
+        <span class="g-pill">${ico("lock", 14)} ${esc(ROUTE_NAMES[r] || "Glidy")} is locked</span>
+        <h1>Connect your wallet.<br><span class="g-grad">Start gliding.</span></h1>
+        <p class="g-lede">Your wallet is your login. Connect once to open the desk, your positions and the agent.</p>
+        <div class="g-opts">${options}</div>
+        <ul class="g-trust">
+          <li>${ico("sign", 16)}<span><b>Free signature</b>No gas, no transaction</span></li>
+          <li>${ico("shield", 16)}<span><b>No funds move</b>Signing in can't spend</span></li>
+          <li>${ico("key", 16)}<span><b>Your keys</b>Glidy never sees them</span></li>
         </ul>
       </div>
+      <div class="g-right">
+        <div class="g-card">
+          <div class="g-card-head"><span class="g-logo"><img src="/img/glidy.svg" alt=""></span><div><b>Inside Glidy</b><small>Uniswap v3 · Robinhood Chain</small></div><span class="g-live"><i></i>live</span></div>
+          <div class="g-stat" id="gStat"><small>Top fee APR right now</small><b class="g-apr">—</b><span>Loading pools…</span></div>
+          <ul class="g-feats">
+            <li>${ico("pools")}<span><b>Smart Pools</b>Every pool ranked by fee APR and depth</span></li>
+            <li>${ico("range")}<span><b>Auto Range</b>Ranges sized from the live price</span></li>
+            <li>${ico("check")}<span><b>LP Checkpoint</b>Seven checks before you sign</span></li>
+            <li>${ico("agent")}<span><b>Glidy Agent</b>Ask in plain words, get a ticket</span></li>
+          </ul>
+        </div>
+      </div>
     </section>`;
-  $("#gateConnect").onclick = onWallet;
+  $("#gateConnect")?.addEventListener("click", onWallet);
+  api("/tools/list_lp_pools?sort=apr&limit=1").then((x) => {
+    const p = x.pools[0]; if (!p || !$("#gStat")) return;
+    $("#gStat").innerHTML = `<small>Top fee APR right now</small><b class="g-apr">${pct(p.feeAprPct, 0)}</b><span>${pair(p.base, p.quote)} ${esc(p.base.symbol)} / ${esc(p.quote.symbol)} · TVL ${usd(p.tvlUsd)}</span>`;
+  }).catch(() => { if ($("#gStat")) $("#gStat").hidden = true; });
 }
 
 const ROUTES = { desk, pools: poolsView, pool: poolView, positions: positionsView, swap, check, live, new: newPairs, stocks: stocksView, token: tokenView, portfolio, limits, journal, api: apiDocs };
@@ -801,7 +832,7 @@ function welcome() {
   $("#chatLog").innerHTML = `<div class="ag-hello">
     <div class="ag-orb"><img src="/img/glidy.svg" alt="" width="56" height="56"></div>
     <h3>${hour < 12 ? "gm" : hour < 18 ? "Good afternoon" : "Good evening"}, ${esc(short(state.address))}</h3>
-    <p>I'm Glidy, your LP agent on Robinhood Chain. I find pools, pick ranges, run the Checkpoint and write tickets. You sign every move.</p>
+    <p>I'm Glidy, your LP agent on Robinhood Chain. I find pools, pick ranges, run the Checkpoint and write tickets. Your wallet has the final say.</p>
     <div class="ag-actions">${ACTIONS.map((a) => `<button type="button" class="ag-act" data-q="${esc(a.q)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${a.i}</svg><b>${esc(a.t)}</b><small>${esc(a.s)}</small></button>`).join("")}</div>
     ${state.health?.llm ? "" : `<p class="ag-note">Command mode: try “add 0.05 ETH to 0x… 10%”, “collect 1234”, “rebalance 1234”.</p>`}
   </div>`;

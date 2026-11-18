@@ -1,10 +1,16 @@
 // LP engine in mock mode: pool ranking, sizing, positions, the Checkpoint and ticket calldata.
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { test } from "node:test";
-import { buildAddTxs, buildCollectTx, buildRemoveTx, listPools, NPM, planAdd, positions } from "../src/lp.mjs";
-import { gateAdd } from "../src/lpgate.mjs";
-import { buildTicket, prepareLp } from "../src/intents.mjs";
-import { parseAndRun } from "../src/agent.mjs";
+
+// A fresh data dir per run, so daily caps and used tickets never carry over between runs.
+process.env.GLIDY_DATA = mkdtempSync(path.join(tmpdir(), "glidy-lp-test-"));
+const { buildAddTxs, buildCollectTx, buildRemoveTx, listPools, NPM, planAdd, positions } = await import("../src/lp.mjs");
+const { gateAdd } = await import("../src/lpgate.mjs");
+const { buildTicket, prepareLp } = await import("../src/intents.mjs");
+const { parseAndRun } = await import("../src/agent.mjs");
 
 const POOL = "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca";
 const ME = "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf";
