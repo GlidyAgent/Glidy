@@ -60,6 +60,19 @@ npm test
 
 **Vercel:** import the repo (Framework Preset: Other); `vercel.json` routes `/api/*` to `api/index.js`. Set `GLIDY_SECRET`. Data is written to `/tmp` there.
 
+### Secrets
+
+This repository contains no keys. Configuration lives in environment variables on your host (Vercel → Settings → Environment Variables, or Railway → Variables), never in the code. [`.env.example`](.env.example) lists them with empty values; for local runs copy it to `.env`, which git ignores.
+
+| Variable | Required | What it is |
+|---|---|---|
+| `GLIDY_SECRET` | yes | Signs sign-in sessions and tickets. A long random string. |
+| `ANTHROPIC_API_KEY` | no | Turns on the AI chat. Without it the agent runs in command mode. |
+| `ANTHROPIC_WORKSPACE_ID` | no | Only for Anthropic keys not scoped to a workspace. |
+| `ROBINHOOD_RPC` | no | Your own Robinhood Chain RPC endpoint. |
+
+The server never sends these to the browser: the page only talks to `/api`, and the AI key is used server-side.
+
 ## API
 
 Read tools are public. Prepare needs an API token; execute needs the `execute` scope and an `Idempotency-Key`.
