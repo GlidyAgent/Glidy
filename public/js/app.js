@@ -24,6 +24,8 @@ async function boot() {
   renderWallet();
   $("#walletBtn").onclick = onWallet;
   $("#askBtn").onclick = () => openDrawer();
+  $("#sideAsk").onclick = () => { document.body.classList.remove("nav-open"); openDrawer(); };
+  sideBadges(); setInterval(() => !document.hidden && sideBadges(), 60000);
   $("#drawerClose").onclick = closeDrawer;
   $("#chatNew").onclick = welcome;
   $("#scrim").onclick = () => { closeDrawer(); document.body.classList.remove("nav-open"); };
@@ -41,6 +43,23 @@ async function boot() {
   window.addEventListener("hashchange", route);
   tickBlock(); setInterval(() => !document.hidden && tickBlock(), 6000);
   route();
+}
+
+/** Live sidebar badges: the top fee APR right now, and the wallet's open positions (amber when one is out of range). */
+async function sideBadges() {
+  api("/tools/list_lp_pools?sort=apr&limit=1").then((r) => {
+    const p = r.pools[0];
+    if (p?.feeAprPct != null) { $("#bPools").textContent = `${p.feeAprPct.toFixed(0)}%`; $("#bPools").title = `Top fee APR now: ${p.name}`; }
+  }).catch(() => {});
+  const b = $("#bPos");
+  if (!state.address) { b.hidden = true; return; }
+  try {
+    const r = await api("/tools/lp_positions");
+    const open = r.positions.filter((x) => !x.closed), out = open.filter((x) => x.inRange === false).length;
+    b.hidden = !open.length; b.classList.toggle("warn", out > 0);
+    b.textContent = out ? `${out} out` : String(open.length);
+    b.title = out ? `${out} out of range` : `${open.length} open`;
+  } catch { b.hidden = true; }
 }
 
 async function tickBlock() {
@@ -68,7 +87,7 @@ async function onWallet() {
   try {
     if (state.address) { await disconnectWallet(); toast("Signed out"); }
     else { await connectWallet(); toast(`Signed in as ${short(state.address)}`); }
-    renderWallet(); route();
+    renderWallet(); route(); sideBadges();
   } catch (e) { toast(e.message || String(e)); }
 }
 

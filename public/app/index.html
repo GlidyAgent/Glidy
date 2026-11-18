@@ -21,36 +21,37 @@
 </head>
 <body class="app">
   <aside class="side" id="side">
-    <a class="brand" href="/" aria-label="Glidy home"><img src="/img/glidy.svg" alt=""><span>Glidy</span></a>
+    <a class="brand" href="/" aria-label="Glidy home"><span class="brand-logo"><img src="/img/glidy.svg" alt=""></span><span class="brand-txt"><b>Glidy</b><small>LP agent · Robinhood</small></span></a>
+    <button class="side-ask" id="sideAsk" type="button"><span class="sa-ico">✈</span><span>Ask Glidy</span><kbd>⌘K</kbd></button>
     <nav class="nav" aria-label="Sections">
-      <div class="nav-group"><span>Overview</span>
+      <div class="nav-group" data-tone="pink"><span>Overview</span>
         <a href="#/desk" data-route="desk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>Desk</a>
       </div>
-      <div class="nav-group"><span>Liquidity</span>
-        <a href="#/pools" data-route="pools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 15c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><path d="M3 19c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><path d="M12 3v8M8 7l4 4 4-4"/></svg>Pools <i class="badge">APR</i></a>
-        <a href="#/positions" data-route="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4v16M19 4v16"/><path d="M3 16c4 0 5-8 9-8s5 8 9 8"/></svg>My positions</a>
+      <div class="nav-group" data-tone="amber"><span>Liquidity</span>
+        <a href="#/pools" data-route="pools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 15c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><path d="M3 19c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><path d="M12 3v8M8 7l4 4 4-4"/></svg><span class="nl">Pools</span><i class="badge apr-badge" id="bPools">APR</i></a>
+        <a href="#/positions" data-route="positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4v16M19 4v16"/><path d="M3 16c4 0 5-8 9-8s5 8 9 8"/></svg><span class="nl">My positions</span><i class="badge" id="bPos" hidden></i></a>
       </div>
-      <div class="nav-group"><span>Trade</span>
+      <div class="nav-group" data-tone="violet"><span>Trade</span>
         <a href="#/swap" data-route="swap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 7h12l-4-4M17 17H5l4 4"/></svg>Swap</a>
         <a href="#/check" data-route="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Checkpoint</a>
       </div>
-      <div class="nav-group"><span>Markets</span>
-        <a href="#/live" data-route="live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>Onchain live <i class="badge">LIVE</i></a>
+      <div class="nav-group" data-tone="green"><span>Markets</span>
+        <a href="#/live" data-route="live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg><span class="nl">Onchain live</span><i class="badge live-badge"><b></b>LIVE</i></a>
         <a href="#/stocks" data-route="stocks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Stocks</a>
       </div>
-      <div class="nav-group"><span>You</span>
+      <div class="nav-group" data-tone="sky"><span>You</span>
         <a href="#/portfolio" data-route="portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M16 13h2M3 10h18M7 6V4h10v2"/></svg>Wallet</a>
         <a href="#/limits" data-route="limits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Limits</a>
         <a href="#/journal" data-route="journal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h11a2 2 0 0 1 2 2v16l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6"/></svg>Journal</a>
       </div>
-      <div class="nav-group"><span>Build</span>
+      <div class="nav-group" data-tone="slate"><span>Build</span>
         <a href="#/api" data-route="api"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></svg>API &amp; MCP</a>
       </div>
     </nav>
     <div class="side-foot">
       <div class="side-wallet" id="sideWallet"></div>
-      <a href="/">← Glidy home</a>
-      <span class="faint mono" style="font-size:11px">Non-custodial · you sign every move</span>
+      <div class="side-links"><a href="/">← Home</a><a href="https://x.com/glidyagent" target="_blank" rel="noopener">X</a><a href="https://github.com/GlidyAgent/Glidy" target="_blank" rel="noopener">GitHub</a></div>
+      <span class="side-safe"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>Non-custodial · you sign every move</span>
     </div>
   </aside>
 
