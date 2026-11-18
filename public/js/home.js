@@ -264,4 +264,3 @@ let firstLoad = load();
 whenSeen($("#checklist"), async () => { await firstLoad; if (!byApr.length) await new Promise((r) => setTimeout(r, 4000)); runCheckpoint(); });
 whenSeen($(".agent-win"), async () => { await firstLoad; runAgent(); });
 setInterval(() => { if (!document.hidden) load(); }, 60000);
-api("/tools/chain_status").then((s) => { $("#navBlock").textContent = `Robinhood Chain · #${s.block.toLocaleString("en-US")}`; $("#navLive").href = `https://robinhoodchain.blockscout.com/block/${s.block}`; }).catch(() => {});
