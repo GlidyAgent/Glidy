@@ -1,0 +1,77 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>@font-face{font-family:"Inter Tight";src:url(../../public/fonts/inter-tight.woff2) format("woff2");font-weight:100 900}@font-face{font-family:"JetBrains Mono";src:url(../../public/fonts/jetbrains-mono.woff2) format("woff2");font-weight:100 800}</style>
+<style>
+*{box-sizing:border-box;margin:0}
+body{background:#000;font-family:"Inter Tight",Arial,sans-serif;color:#fbeff5}
+.grad{background:linear-gradient(100deg,#f472b6,#fb923c 55%,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}
+/* profile picture 400x400 */
+#pfp{width:400px;height:400px;position:relative;overflow:hidden;background:radial-gradient(260px 260px at 70% 20%,rgba(251,191,36,.35),transparent 70%),radial-gradient(300px 300px at 25% 80%,rgba(244,114,182,.45),transparent 70%),#140810;display:grid;place-items:center}
+#pfp svg{width:300px;height:300px;filter:drop-shadow(0 18px 40px rgba(244,114,182,.55))}
+/* banner 1500x500 */
+#banner{width:1500px;height:500px;position:relative;overflow:hidden;background:#0c070b}
+#banner .au{position:absolute;border-radius:50%;filter:blur(90px)}
+#banner .a1{width:760px;height:760px;right:-160px;top:-420px;background:#f472b6;opacity:.32}
+#banner .a2{width:620px;height:620px;left:-240px;bottom:-420px;background:#fbbf24;opacity:.16}
+#banner .a3{width:520px;height:520px;right:340px;bottom:-420px;background:#a855f7;opacity:.18}
+#banner .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:50px 50px;mask-image:radial-gradient(900px 400px at 60% 40%,#000,transparent)}
+.copy{position:absolute;left:96px;top:58px;width:880px}
+.pill{display:inline-flex;align-items:center;gap:10px;font:500 15px "JetBrains Mono",monospace;color:#cdb7c3;border:1px solid rgba(255,255,255,.14);border-radius:99px;padding:8px 16px;background:rgba(255,255,255,.03)}
+.pill i{width:9px;height:9px;border-radius:50%;background:#34d399;box-shadow:0 0 0 5px rgba(52,211,153,.18)}
+h1{font-weight:800;font-size:74px;line-height:.98;letter-spacing:-.05em;margin:22px 0 18px}
+.sub{font-size:21px;color:#cdb7c3;line-height:1.45}
+.url{position:absolute;right:62px;bottom:34px;display:inline-flex;align-items:center;gap:10px;font:700 19px "Inter Tight",Arial;color:#1f0716;background:linear-gradient(100deg,#f472b6,#fb923c 55%,#fbbf24);padding:11px 20px;border-radius:99px;box-shadow:0 14px 36px -12px rgba(244,114,182,.8)}
+.card{position:absolute;right:62px;top:44px;width:390px;border-radius:24px;padding:18px;background:rgba(19,11,18,.82);border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 100px -40px rgba(244,114,182,.6)}
+.card::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:linear-gradient(140deg,rgba(244,114,182,.7),transparent 40%,transparent 60%,rgba(251,191,36,.6));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.ch{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:700}
+.ch small{display:block;font-weight:400;color:#95808c;font-size:12px}
+.tag{font:700 11px "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:#34d399;background:rgba(52,211,153,.12);padding:5px 9px;border-radius:7px}
+.foot{display:flex;justify-content:space-between;border-top:1px dashed rgba(255,255,255,.14);padding-top:12px;margin-top:4px}
+.foot small{display:block;color:#95808c;font-size:11px}.foot b{font:700 17px "JetBrains Mono",monospace}
+.apr{background:linear-gradient(100deg,#f472b6,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}
+.up{color:#34d399}
+.sol{font-weight:700;background:linear-gradient(90deg,#9945ff,#14f195);-webkit-background-clip:text;background-clip:text;color:transparent}
+.solg{background:linear-gradient(100deg,#b57bff,#14f195);-webkit-background-clip:text;background-clip:text;color:transparent}
+#banner .a4{width:560px;height:560px;left:520px;top:-430px;background:#14f195;opacity:.10}
+#banner .a5{width:600px;height:600px;right:120px;bottom:-470px;background:#9945ff;opacity:.28}
+.tk{display:flex;gap:12px;align-items:center}
+.lg{display:inline-flex}.lg img,.lg i{width:30px;height:30px;border-radius:50%;box-shadow:0 0 0 2px #130b12}
+.lg img{background:#000;padding:5px}
+.lg i{margin-left:-9px;background:#2775ca;color:#fff;font:800 16px "Inter Tight";font-style:normal;display:grid;place-items:center}
+.chips{position:absolute;right:480px;bottom:40px;display:flex;gap:10px}
+.chips span{font:600 14px "JetBrains Mono",monospace;color:#cdb7c3;padding:8px 13px;border-radius:12px;background:rgba(19,11,18,.8);border:1px solid rgba(255,255,255,.12)}
+.chips b{color:#fbbf24;margin-left:6px}
+</style></head><body>
+<div id="pfp">
+  <svg viewBox="0 0 512 512"><defs><linearGradient id="pg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f472b6"/><stop offset=".55" stop-color="#fb923c"/><stop offset="1" stop-color="#fbbf24"/></linearGradient><linearGradient id="pt" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f472b6" stop-opacity="0"/><stop offset="1" stop-color="#f472b6"/></linearGradient></defs>
+    <path d="M70 330 C130 296 182 296 228 320" fill="none" stroke="url(#pt)" stroke-width="18" stroke-linecap="round"/>
+    <path d="M52 394 C116 360 166 364 204 386" fill="none" stroke="url(#pt)" stroke-width="13" stroke-linecap="round" opacity=".55"/>
+    <path d="M108 294 L430 124 L322 410 L274 300Z" fill="url(#pg)"/>
+    <path d="M274 300 L430 124 L236 264Z" fill="#fff7ed" opacity=".25"/>
+    <path d="M274 300 L430 124" stroke="#140810" stroke-width="10" stroke-linecap="round"/>
+  </svg>
+</div>
+<div id="banner">
+  <div class="au a1"></div><div class="au a2"></div><div class="au a3"></div><div class="au a4"></div><div class="au a5"></div><div class="grid"></div>
+  <div class="chips"><span>NVDAx/USDC<b>0.08%</b></span><span>SOL/USDC<b>0.04%</b></span><span>xStocks<b>LP</b></span></div>
+  <div class="copy">
+    <span class="pill"><i></i>LP agent · now on <b class="sol">Solana</b> · Orca Whirlpools</span>
+    <h1>Your liquidity,<br><span class="grad">gliding</span> on <span class="solg">Solana.</span></h1>
+    <div class="sub">The best Orca pools, ranges sized for you, every deposit<br>simulated before Phantom, Solflare or Backpack signs.</div>
+  </div>
+  <span class="url">useglidy.xyz</span>
+  <div class="card">
+    <div class="ch"><div class="tk"><span class="lg"><img src="../../public/img/sol.svg"><i>$</i></span><div>SOL / USDC<small>Orca Whirlpool · 0.04% fee</small></div></div><span class="tag">in range</span></div>
+    <svg viewBox="0 0 360 200" width="354" height="196" style="display:block;margin:10px 0 6px">
+      <defs><linearGradient id="bg2" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#fbbf24"/></linearGradient><linearGradient id="band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f472b6" stop-opacity=".18"/><stop offset="1" stop-color="#fbbf24" stop-opacity=".04"/></linearGradient></defs>
+      <rect x="100" y="6" width="160" height="188" rx="10" fill="url(#band)"/>
+      <line x1="100" y1="6" x2="100" y2="194" stroke="#cdb7c3" stroke-dasharray="4 6" opacity=".5"/><line x1="260" y1="6" x2="260" y2="194" stroke="#cdb7c3" stroke-dasharray="4 6" opacity=".5"/>
+      <g fill="url(#bg2)" opacity=".85"><rect x="108" y="150" width="13" height="44" rx="3"/><rect x="126" y="122" width="13" height="72" rx="3"/><rect x="144" y="94" width="13" height="100" rx="3"/><rect x="162" y="68" width="13" height="126" rx="3"/><rect x="180" y="56" width="13" height="138" rx="3"/><rect x="198" y="74" width="13" height="120" rx="3"/><rect x="216" y="102" width="13" height="92" rx="3"/><rect x="234" y="134" width="13" height="60" rx="3"/></g>
+      <path d="M0 150 C50 150 70 70 130 66 S220 110 250 92 S320 60 360 70" fill="none" stroke="#fbeff5" stroke-width="3" stroke-linecap="round"/>
+      <g transform="translate(286 52) rotate(-10)"><path d="M-22 7 L22 -16 L7 21 L1 5Z" fill="url(#bg2)"/><path d="M1 5 L22 -16" stroke="#0c070b" stroke-width="2.5"/></g>
+      <text x="160" y="50" font-family="JetBrains Mono" font-size="12" font-weight="700" fill="#34d399">+fees</text>
+    </svg>
+    <div class="foot"><div><small>Fee APR</small><b class="apr">71%</b></div><div><small>Range</small><b>±5%</b></div><div><small>Checkpoint</small><b class="up">PASS</b></div></div>
+  </div>
+</div>
+</body></html>

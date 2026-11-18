@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# runtime data: limits, journal, API token hashes, the generated session secret
+/data/
+
+# secrets: never commit real keys. Put them in your host's environment variables (Vercel, Railway…).
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# local tooling and logs
+.vercel/
+.railway/
+*.log
+npm-debug.log*
+coverage/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
