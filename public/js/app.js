@@ -184,9 +184,9 @@ const fmtAmt = (x) => (x == null ? "–" : x >= 1000 ? x.toLocaleString("en-US",
 const MAJORS = new Set(["WETH", "ETH", "USDG"]);
 const kindOf = (p) => (p.base.stock || p.quote.stock ? "stocks" : MAJORS.has(p.base.symbol) && MAJORS.has(p.quote.symbol) ? "calm" : "coins");
 const STRATS = {
-  calm: { name: "Calm", tag: "Majors & stables", w: 5, icon: "🌊", blurb: "WETH and USDG pairs. Deep pools, tight ranges, steady fees." },
-  stocks: { name: "Stocks", tag: "Tokenized equities", w: 10, icon: "📈", blurb: "NVDA, TSLA and friends, 24/7 on-chain. Earn fees on the trading." },
-  coins: { name: "Degen", tag: "New coins", w: 50, icon: "🚀", blurb: "The hottest coins. Wild APRs, wide ranges, real risk. Checkpoint first." },
+  calm: { name: "Calm", tag: "Majors & stables", w: 5, blurb: "WETH and USDG pairs. Deep pools, tight ranges, steady fees." },
+  stocks: { name: "Stocks", tag: "Tokenized equities", w: 10, blurb: "NVDA, TSLA and friends, 24/7 on-chain. Earn fees on the trading." },
+  coins: { name: "Degen", tag: "New coins", w: 50, blurb: "The hottest coins. Wild APRs, wide ranges, real risk. Checkpoint first." },
 };
 const wFor = (p) => { const m = Math.abs(p?.change24hPct || 0); return m < 1.5 ? 2 : m < 4 ? 5 : m < 9 ? 10 : m < 18 ? 20 : 50; };
 const ident = (a) => { const h1 = parseInt(String(a).slice(2, 8), 16) % 360, h2 = parseInt(String(a).slice(8, 14), 16) % 360; return `<span class="ident" style="background:conic-gradient(from 40deg, hsl(${h1} 80% 62%), hsl(${h2} 85% 58%), hsl(${h1} 80% 62%))"></span>`; };
@@ -259,7 +259,7 @@ function desk() {
     if (eth && eth.valueUsd > 5 && calm) tip("idea", "✦", `${fmtAmt(eth.amount)} ETH is sitting idle`, `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)} pays ~${pct(calm.feeAprPct, 0)} APR right now. Put half to work?`, `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&token=ETH&amount=${(eth.amount / 2).toFixed(4)}&width=${wFor(calm)}">Add</a>`);
     for (const h of pf.holdings.filter((x) => x.stock && x.valueUsd > 5).slice(0, 2)) {
       const sp = pools.filter((p) => [p.base.symbol, p.quote.symbol].includes(h.symbol)).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
-      if (sp) tip("idea", "📈", `Your ${esc(h.symbol)} could earn fees`, `${esc(sp.base.symbol)}/${esc(sp.quote.symbol)} pays ~${pct(sp.feeAprPct, 0)} APR. Provide liquidity with it.`, `<a class="btn sm primary" href="#/pool?address=${esc(sp.pool)}&token=${esc(h.symbol)}&width=${wFor(sp)}">Add</a>`);
+      if (sp) tip("idea", "↗", `Your ${esc(h.symbol)} could earn fees`, `${esc(sp.base.symbol)}/${esc(sp.quote.symbol)} pays ~${pct(sp.feeAprPct, 0)} APR. Provide liquidity with it.`, `<a class="btn sm primary" href="#/pool?address=${esc(sp.pool)}&token=${esc(h.symbol)}&width=${wFor(sp)}">Add</a>`);
     }
     if (!posR.positions.length && !tips.length) tip("idea", "✈", "Start with a Calm position", calm ? `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)}: ~${pct(calm.feeAprPct, 0)} APR, ${usd(calm.tvlUsd)} deep. Top up ETH and add.` : "Pick a deep WETH/USDG pool first.", calm ? `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&width=${wFor(calm)}">Start</a>` : "");
     if (!tips.length) tip("good", "✓", "All positions in range", "Nothing to do. Glidy keeps watching.", "");
@@ -274,7 +274,7 @@ function desk() {
       $("#strats").innerHTML = Object.entries(STRATS).map(([k, s]) => {
         const best = pools.filter((p) => kindOf(p) === k && p.tvlUsd > (k === "coins" ? 30000 : 50000)).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
         return `<a class="card strat s-${k}" href="${best ? `#/pool?address=${esc(best.pool)}&width=${Math.max(s.w, wFor(best))}` : "#/pools"}">
-          <div class="row between"><span class="st-icon">${s.icon}</span><span class="tag neutral">${esc(s.tag)}</span></div>
+          <div class="row between"><span class="st-kicker">Strategy</span><span class="tag neutral">${esc(s.tag)}</span></div>
           <h3>${esc(s.name)}</h3><p>${esc(s.blurb)}</p>
           ${best ? `<div class="st-best">${pair(best.base, best.quote)}<span><b>${esc(best.base.symbol)}/${esc(best.quote.symbol)}</b><small>TVL ${usd(best.tvlUsd)} · ±${Math.max(s.w, wFor(best))}%</small></span><b class="apr">${pct(best.feeAprPct, 0)}</b></div>` : `<div class="muted">No pool right now</div>`}
           <span class="st-go">Start ${esc(s.name)} →</span></a>`;
@@ -309,7 +309,7 @@ function poolsView(q) {
   const sort = ["apr", "tvl", "volume"].includes(q.get("sort")) ? q.get("sort") : "apr";
   view.innerHTML = head(`Pools <em>for LPs</em>`, "Every Uniswap v3 pool on Robinhood Chain, ranked for liquidity providers. Fee APR is estimated from 24h volume for full-range liquidity; a tighter range earns more while in range.",
     `<div class="row"><span class="block-pill"><i class="live-dot"></i><span id="poolUpd">live</span></span><div class="tabs" id="sortTabs">${[["apr", "Fee APR"], ["tvl", "TVL"], ["volume", "Volume"]].map(([k, l]) => `<button data-k="${k}" class="${k === sort ? "on" : ""}">${l}</button>`).join("")}</div></div>`)
-    + `<div class="card"><div class="row between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap"><div class="kind-tabs" id="kindTabs">${[["all", "All"], ["calm", "🌊 Calm"], ["stocks", "📈 Stocks"], ["coins", "🚀 Degen"]].map(([k, l]) => `<button data-k="${k}" class="${k === "all" ? "on" : ""}">${l}</button>`).join("")}</div><input id="poolFilter" placeholder="Search WETH, NVDA, USDG…" style="max-width:240px"><span class="muted" id="poolCount" style="font-size:13px"></span></div><div id="poolTable"><div class="skeleton"></div></div></div>`;
+    + `<div class="card"><div class="row between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap"><div class="kind-tabs" id="kindTabs">${[["all", "All"], ["calm", "Calm"], ["stocks", "Stocks"], ["coins", "Degen"]].map(([k, l]) => `<button data-k="${k}" class="${k === "all" ? "on" : ""}">${l}</button>`).join("")}</div><input id="poolFilter" placeholder="Search WETH, NVDA, USDG…" style="max-width:240px"><span class="muted" id="poolCount" style="font-size:13px"></span></div><div id="poolTable"><div class="skeleton"></div></div></div>`;
   $("#sortTabs").onclick = (e) => { const b = e.target.closest("button"); if (b) location.hash = `#/pools?sort=${b.dataset.k}`; };
   let rows = [], kind = "all";
   $("#kindTabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; kind = b.dataset.k; $("#kindTabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); render(); };
