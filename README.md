@@ -34,9 +34,9 @@ Contracts used (Robinhood Chain): Uniswap V3 Factory `0x1f7d7550b1b028f7571e69a7
 
 Fee APR = 24h volume × fee tier ÷ TVL × 365, for full-range liquidity. A concentrated range earns more while in range and nothing while out of range. The token check is a bytecode heuristic, not an audit.
 
-## Run it
+## Run locally (for developers)
 
-Node 20 or newer.
+Use Glidy at **[useglidy.xyz](https://useglidy.xyz)**. To run your own copy you need Node 20 or newer:
 
 ```bash
 npm install
@@ -46,11 +46,9 @@ npm install
 npm start
 ```
 
-Then open http://127.0.0.1:9330. Pools, positions and the Checkpoint work with no configuration. Add `ANTHROPIC_API_KEY` to turn on the AI chat (see [`.env.example`](.env.example)). Offline demo with simulated data (also what the tests use):
+Then open http://127.0.0.1:9330. It reads Robinhood Chain live with no configuration; the AI chat needs your own `ANTHROPIC_API_KEY` (see [Secrets](#secrets)).
 
-```bash
-npm run mock
-```
+Run the tests:
 
 ```bash
 npm test
