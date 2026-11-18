@@ -4,6 +4,9 @@
   "buildCommand": "",
   "installCommand": "npm install",
   "outputDirectory": "public",
+  "redirects": [
+    { "source": "/app", "destination": "/app/", "permanent": true }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",
