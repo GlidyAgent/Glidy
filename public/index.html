@@ -29,9 +29,9 @@
 
   <header class="hd" id="hd">
     <a class="logo" href="/" aria-label="Glidy home"><img src="/img/glidy.svg" alt="" width="34" height="34"><span>Glidy</span></a>
-    <nav class="hd-nav hide-sm" aria-label="Sections"><a href="#strategies">Strategies</a><a href="#how">How it works</a><a href="#calc">Earnings</a><a href="#checkpoint">Checkpoint</a><a href="#agent">Agent</a><a href="#faq">FAQ</a></nav>
+    <nav class="hd-nav hide-sm" aria-label="Sections"><a href="#products">Products</a><a href="#strategies">Strategies</a><a href="#how">How it works</a><a href="#faq">FAQ</a></nav>
     <div class="hd-end">
-      <a class="btn-pill solid" href="/app/">Launch app <span class="arr">→</span></a>
+      <a class="btn-pill solid" href="/app/">Connect wallet <span class="arr">→</span></a>
       <button class="icon-theme" id="themeBtn" type="button" aria-label="Toggle theme"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
     </div>
   </header>
@@ -44,8 +44,8 @@
         <h1 class="reveal-words"><span>Your</span> <span>liquidity,</span><br><span class="grad">gliding</span> <span>to</span> <span>the</span><br><span>best</span> <span>pool.</span></h1>
         <p class="lede">Glidy is the LP agent for Robinhood Chain. It ranks every pool by fee income and risk, places your range around the live price, checks the deposit before you sign, and tells you the moment to collect or rebalance.</p>
         <div class="ctas">
-          <a class="btn-pill solid big shine" href="/app/#/pools">Find my pool <span class="arr">→</span></a>
-          <a class="btn-pill big ghost" href="#calc">Estimate my fees</a>
+          <a class="btn-pill solid big shine" href="/app/">Connect wallet &amp; start <span class="arr">→</span></a>
+          <a class="btn-pill big ghost" href="#products">Explore products</a>
         </div>
         <ul class="trust">
           <li><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>Non-custodial</li>
@@ -98,13 +98,88 @@
       <div><b data-count id="stPools">0</b><span>pools ranked live</span></div>
     </section>
 
+    <!-- PRODUCTS -->
+    <section class="sec" id="products">
+      <div class="sec-intro rv"><span class="kicker">Products</span><h2>Everything an LP needs.<br><em>One agent, one wallet.</em></h2></div>
+      <div class="prod-grid">
+        <a class="prod prod-hero rv" href="/app/">
+          <div class="prod-copy">
+            <span class="prod-tag">Glidy Agent</span>
+            <h3>Talk to your liquidity.</h3>
+            <p>Ask in plain words. Glidy reads Robinhood Chain, finds the pool, picks the range, runs the Checkpoint and writes the ticket. You review it and sign it in your wallet.</p>
+            <ul class="prod-list"><li>Best pools, ranges and fees on request</li><li>Add, collect, remove and rebalance from chat</li><li>Every number from a live tool call</li></ul>
+            <span class="prod-cta">🔒 Connect wallet to chat <span class="arr">→</span></span>
+          </div>
+          <div class="prod-vis vis-chat" aria-hidden="true">
+            <div class="vc-head"><img src="/img/glidy.svg" alt="" width="26" height="26"><b>Glidy</b><span class="pulse"></span></div>
+            <div class="vc-b u">find me a good pool</div>
+            <div class="vc-chip">✓ Ranked Uniswap v3 pools</div>
+            <div class="vc-b a"><i></i><i></i><i style="width:60%"></i></div>
+            <div class="vc-b u">add it, you pick the range</div>
+            <div class="vc-chip">✓ Ran the LP Checkpoint</div>
+            <div class="vc-ticket"><span>Ticket · add liquidity</span><b>Sign in wallet</b></div>
+            <div class="vc-lock"><span>🔒</span><b>Connect your wallet to chat with Glidy</b><small>Free signature · no funds move</small></div>
+          </div>
+        </a>
+
+        <a class="prod rv" href="/app/#/pools">
+          <div class="prod-vis vis-bars" aria-hidden="true"><i style="--h:38%"></i><i style="--h:64%"></i><i style="--h:100%"></i><i style="--h:78%"></i><i style="--h:50%"></i><i style="--h:28%"></i></div>
+          <span class="prod-tag">Smart Pools</span>
+          <h3>Every pool, ranked.</h3>
+          <p>All Uniswap v3 pools on Robinhood Chain sorted by fee APR, depth and volume, with Calm, Stocks and Degen filters.</p>
+          <span class="prod-cta">🔒 Connect to explore <span class="arr">→</span></span>
+        </a>
+
+        <a class="prod rv" href="/app/#/pools">
+          <div class="prod-vis vis-range" aria-hidden="true"><span class="vr-band"></span><span class="vr-l"></span><span class="vr-r"></span><span class="vr-dot"></span></div>
+          <span class="prod-tag">Auto Range</span>
+          <h3>Ranges sized for you.</h3>
+          <p>Give one side and a width. Glidy sizes the other token from the live price and snaps the range to the pool's ticks.</p>
+          <span class="prod-cta">🔒 Connect to add liquidity <span class="arr">→</span></span>
+        </a>
+
+        <a class="prod rv" href="/app/#/pools">
+          <div class="prod-vis vis-checks" aria-hidden="true"><span>✓ Official pool</span><span>✓ Depth</span><span>✓ Token risk</span><span>✓ Range vs volatility</span><span>✓ Simulation</span></div>
+          <span class="prod-tag">LP Checkpoint</span>
+          <h3>Checked before you sign.</h3>
+          <p>Seven checks on every deposit, on the live chain. A fail means no ticket. A pass is checked again right before signing.</p>
+          <span class="prod-cta">🔒 Connect to run it <span class="arr">→</span></span>
+        </a>
+
+        <a class="prod rv" href="/app/#/positions">
+          <div class="prod-vis vis-pos" aria-hidden="true"><div class="vp-row"><span class="vp-pair"><i></i><i></i></span><span class="vp-tag">in range</span></div><div class="vp-bar"><span></span><b></b></div><div class="vp-btns"><span>Collect</span><span>Rebalance</span></div></div>
+          <span class="prod-tag">Position Guard</span>
+          <h3>Your positions, watched.</h3>
+          <p>In-range status, fees ready and value for every position. Collect in one tap; rebalance when price leaves your range.</p>
+          <span class="prod-cta">🔒 Connect to see yours <span class="arr">→</span></span>
+        </a>
+
+        <a class="prod rv" href="/app/#/swap">
+          <div class="prod-vis vis-swap" aria-hidden="true"><span class="vs-a">ETH</span><span class="vs-arrow">⇄</span><span class="vs-b">USDG</span></div>
+          <span class="prod-tag">Swap</span>
+          <h3>The right tokens, fast.</h3>
+          <p>Short on one side? Swap ETH, USDG, tokenized stocks and coins through KyberSwap routes, checked like every move.</p>
+          <span class="prod-cta">🔒 Connect to swap <span class="arr">→</span></span>
+        </a>
+
+        <a class="prod rv" href="/app/#/api">
+          <div class="prod-vis vis-code" aria-hidden="true"><code>list_lp_pools()</code><code>check_lp()</code><code>prepare_lp_add()</code></div>
+          <span class="prod-tag">API &amp; MCP</span>
+          <h3>Built for builders.</h3>
+          <p>Every tool the agent uses, over REST and MCP. Plug Glidy into Claude, Cursor or your own bot.</p>
+          <span class="prod-cta">Read the docs <span class="arr">→</span></span>
+        </a>
+      </div>
+    </section>
+
+
     <!-- STRATEGIES -->
     <section class="sec" id="strategies">
       <div class="sec-intro rv"><span class="kicker"><span class="pulse"></span> Pick your style</span><h2>Three ways to glide.<br><em>One tap to start.</em></h2></div>
       <div class="strat3" id="strat3">
-        <a class="scard rv s-calm" href="/app/#/pools" data-k="calm"><div class="sc-top"><span class="sc-emoji">🌊</span><span class="sc-tag">Majors &amp; stables</span></div><h3>Calm</h3><p>WETH and USDG. The deepest pools on Robinhood Chain, tight ranges, steady fees.</p><div class="sc-pool"><div class="skeleton"></div></div><div class="sc-meter"><span>Risk</span><i class="m1"></i><i></i><i></i></div></a>
-        <a class="scard rv s-stocks" href="/app/#/pools" data-k="stocks"><div class="sc-top"><span class="sc-emoji">📈</span><span class="sc-tag">Tokenized stocks</span></div><h3>Stocks</h3><p>NVDA, TSLA, SPY, 24/7 on-chain. Earn fees on every trade of the world's biggest companies.</p><div class="sc-pool"><div class="skeleton"></div></div><div class="sc-meter"><span>Risk</span><i class="m1"></i><i class="m1"></i><i></i></div></a>
-        <a class="scard rv s-coins" href="/app/#/pools" data-k="coins"><div class="sc-top"><span class="sc-emoji">🚀</span><span class="sc-tag">New coins</span></div><h3>Degen</h3><p>The hottest coins on the chain. Wild APRs, wide ranges, real risk. The Checkpoint goes first.</p><div class="sc-pool"><div class="skeleton"></div></div><div class="sc-meter"><span>Risk</span><i class="m1"></i><i class="m1"></i><i class="m1"></i></div></a>
+        <a class="scard rv s-calm" href="/app/#/pools" data-k="calm"><div class="sc-top"><span class="sc-emoji">🌊</span><span class="sc-tag">Majors &amp; stables</span></div><h3>Calm</h3><p>WETH and USDG. The deepest pools on Robinhood Chain, tight ranges, steady fees.</p><div class="sc-pool"><div class="skeleton"></div></div><span class="prod-cta">🔒 Connect wallet to start <span class="arr">→</span></span><div class="sc-meter"><span>Risk</span><i class="m1"></i><i></i><i></i></div></a>
+        <a class="scard rv s-stocks" href="/app/#/pools" data-k="stocks"><div class="sc-top"><span class="sc-emoji">📈</span><span class="sc-tag">Tokenized stocks</span></div><h3>Stocks</h3><p>NVDA, TSLA, SPY, 24/7 on-chain. Earn fees on every trade of the world's biggest companies.</p><div class="sc-pool"><div class="skeleton"></div></div><span class="prod-cta">🔒 Connect wallet to start <span class="arr">→</span></span><div class="sc-meter"><span>Risk</span><i class="m1"></i><i class="m1"></i><i></i></div></a>
+        <a class="scard rv s-coins" href="/app/#/pools" data-k="coins"><div class="sc-top"><span class="sc-emoji">🚀</span><span class="sc-tag">New coins</span></div><h3>Degen</h3><p>The hottest coins on the chain. Wild APRs, wide ranges, real risk. The Checkpoint goes first.</p><div class="sc-pool"><div class="skeleton"></div></div><span class="prod-cta">🔒 Connect wallet to start <span class="arr">→</span></span><div class="sc-meter"><span>Risk</span><i class="m1"></i><i class="m1"></i><i class="m1"></i></div></a>
       </div>
     </section>
 
@@ -130,89 +205,12 @@
       </div>
     </section>
 
-    <!-- CALCULATOR -->
-    <section class="sec" id="calc">
-      <div class="sec-intro rv"><span class="kicker"><span class="pulse"></span> Live estimate</span><h2>What could your<br><em>liquidity earn?</em></h2></div>
-      <div class="calc rv">
-        <div class="calc-in">
-          <label class="lbl">Pool</label>
-          <div class="pool-pick" id="calcPools"></div>
-          <label class="lbl" for="calcAmt">Deposit <b id="calcAmtV">$1,000</b></label>
-          <input type="range" id="calcAmt" min="100" max="50000" step="100" value="1000">
-          <label class="lbl">Range around the price</label>
-          <div class="seg-h" id="calcW"></div>
-        </div>
-        <div class="calc-out">
-          <div class="big-num"><small>Estimated fees per year</small><b class="apr" id="cYear">–</b></div>
-          <div class="calc-grid">
-            <div><small>per day</small><b id="cDay">–</b></div>
-            <div><small>per month</small><b id="cMonth">–</b></div>
-            <div><small>pool fee APR</small><b id="cApr">–</b></div>
-            <div><small>stays in range</small><b id="cDays">–</b></div>
-          </div>
-          <div class="calc-viz"><div class="cv-bar"><span id="cvIn"></span><i id="cvNow"></i></div><div class="cv-l"><span id="cvLo">–</span><span id="cvMid">now</span><span id="cvHi">–</span></div></div>
-          <p class="fine" id="calcNote">Fees use the pool's live fee APR (24h volume × fee ÷ TVL × 365) and assume price stays in your range. Time in range is a random-walk estimate from today's price move. Estimates, not promises.</p>
-          <a class="btn-pill solid shine" id="calcGo" href="/app/#/pools">Open this pool <span class="arr">→</span></a>
-        </div>
-      </div>
-    </section>
-
-    <!-- PRODUCT PREVIEW -->
+    <!-- WALLET GATE BANNER -->
     <section class="sec">
-      <div class="sec-intro rv"><span class="kicker">The app</span><h2>Your positions,<br><em>always in view.</em></h2></div>
-      <div class="device rv">
-        <div class="device-bar"><i></i><i></i><i></i><span>glidy · My positions</span></div>
-        <div class="device-body">
-          <div class="dv-stats">
-            <div><small>Liquidity</small><b id="pvVal">$0</b></div>
-            <div><small>Fees ready</small><b class="up" id="pvFees">$0.0000</b></div>
-            <div><small>In range</small><b>1/1</b></div>
-          </div>
-          <div class="dv-pos">
-            <div class="row-b"><div class="art-pair"><span class="pl" id="pvLogos"></span><div><b id="pvName">–</b><small id="pvSub">–</small></div></div><span class="tag pass">in range</span></div>
-            <div class="cv-bar"><span style="left:0;width:100%"></span><i id="pvNow" style="left:50%"></i></div>
-            <div class="cv-l"><span id="pvLo">–</span><span>live price</span><span id="pvHi">–</span></div>
-            <div class="dv-act"><span class="btn-mini solid">Collect fees</span><span class="btn-mini">Remove</span><span class="btn-mini">Rebalance</span></div>
-          </div>
-          <p class="fine" style="margin-top:12px">Illustration from the live pool: $1,000 at its current fee APR, fees counting up in real time. Your real positions are read from your wallet in the app.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- CHECKPOINT -->
-    <section class="sec split" id="checkpoint">
-      <div class="rv">
-        <span class="kicker">The Checkpoint</span>
-        <h2>No ticket until<br><em>the deposit checks out.</em></h2>
-        <p class="sub">Every add runs these checks on the live chain first. A fail means no ticket. A pass still waits for your signature, after one more check right before you sign.</p>
-        <p class="fine" id="ckFor">Running now on a live pool…</p>
-      </div>
-      <ul class="checklist" id="checklist">
-        <li data-id="pool"><b>Official pool</b><span>Created by the Uniswap v3 factory on Robinhood Chain.</span></li>
-        <li data-id="depth"><b>Depth</b><span>Too thin is blocked; low volume is warned.</span></li>
-        <li data-id="fees"><b>Fee income</b><span>24h volume and the fee APR it pays.</span></li>
-        <li data-id="range"><b>Range vs volatility</b><span>Warns when your range is tighter than the last 24h move.</span></li>
-        <li data-id="il"><b>Impermanent loss</b><span>What a move to the edge of your range costs vs holding.</span></li>
-        <li data-id="simulation"><b>Balance & simulation</b><span>The exact deposit, simulated from your wallet.</span></li>
-        <li data-id="per_trade"><b>Your limits</b><span>Per-deposit and daily caps, a pause and a kill switch.</span></li>
-      </ul>
-    </section>
-
-    <!-- AGENT -->
-    <section class="sec" id="agent">
-      <div class="sec-intro rv"><span class="kicker">The agent</span><h2>Just ask.<br><em>Glidy does the legwork.</em></h2></div>
-      <div class="agent-wrap rv">
-        <div class="agent-win">
-          <div class="aw-head"><img src="/img/glidy.svg" alt="" width="30" height="30"><div><b>Glidy</b><small><span class="pulse"></span> online · reading Robinhood Chain</small></div><span class="aw-pill">LP agent</span></div>
-          <div class="aw-log" id="awLog"></div>
-          <div class="aw-input"><span id="awTyping">Ask anything about your liquidity…</span><span class="aw-send">↑</span></div>
-        </div>
-        <ul class="agent-points">
-          <li><b>Reads before it speaks.</b><span>Every number comes from a tool call on live data: pools, positions, prices, bytecode.</span></li>
-          <li><b>Writes tickets, never signs.</b><span>Add, collect, remove and rebalance become tickets you review and sign in your own wallet.</span></li>
-          <li><b>Plays by your limits.</b><span>Caps and a pause live on the server, outside the model. The agent cannot get around them.</span></li>
-          <li><b>Everywhere you work.</b><span>Chat in the app, or call the same tools over REST and MCP from Claude, Cursor or your own bot.</span></li>
-        </ul>
+      <div class="gate-band rv">
+        <div class="gb-icon">🔐</div>
+        <div><h3>Your wallet is your login.</h3><p>Connect to unlock the agent, pools, positions and tickets. Signing in is a free signature: it cannot move funds, and Glidy never sees your keys.</p></div>
+        <a class="btn-pill solid big shine" href="/app/">Connect wallet <span class="arr">→</span></a>
       </div>
     </section>
 
@@ -232,7 +230,7 @@
       <div class="cta-plane" aria-hidden="true"><img src="/img/glidy.svg" alt="" width="96" height="96"></div>
       <h2>Ready to <span class="grad">glide</span>?</h2>
       <p>Connect a wallet, pick a pool, sign. That's it.</p>
-      <a class="btn-pill solid big shine" href="/app/">Launch Glidy <span class="arr">→</span></a>
+      <a class="btn-pill solid big shine" href="/app/">Connect wallet <span class="arr">→</span></a>
     </section>
   </main>
 
