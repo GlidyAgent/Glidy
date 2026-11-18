@@ -169,7 +169,7 @@ export async function parseAndRun(text, ctx, onResult = () => {}) {
   if (/\b(pools?|apr|yield|lp)\b/i.test(t) && /\b(best|top|list|show|terbaik|daftar|apr|yield|pools)\b/i.test(t) && !/\b(add|tambah|deposit|masuk)/i.test(t)) {
     const r = await call("list_lp_pools", { sort: /\b(tvl|depth|liquid)/i.test(t) ? "tvl" : /\bvolume\b/i.test(t) ? "volume" : "apr", limit: 8 });
     const by = r.pools[0] ? (/\b(tvl|depth|liquid)/i.test(t) ? "depth" : /\bvolume\b/i.test(t) ? "24h volume" : "fee APR") : "";
-    return `Top Uniswap v3 pools on Robinhood Chain by ${by}, live:\n` + r.pools.map((p) => `• ${p.name}: APR ~${(p.feeAprPct ?? 0).toFixed(1)}%, TVL ${usd(p.tvlUsd)}, 24h vol ${usd(p.volume24hUsd)} — ${p.pool}`).join("\n") + "\nTap a pool to open it, or say \"add 0.05 ETH to <pool address> 10%\" and I'll write the ticket.";
+    return `Top Uniswap v3 pools on Robinhood Chain by ${by}, live:\n` + r.pools.map((p) => `• ${p.name}: ${p.feeAprPct != null ? `APR ~${p.feeAprPct.toFixed(1)}%` : p.aprFlag === "thin" ? "APR n/a (thin pool)" : "APR unreliable (volume far above liquidity)"}, TVL ${usd(p.tvlUsd)}, 24h vol ${usd(p.volume24hUsd)} — ${p.pool}`).join("\n") + "\nTap a pool to open it, or say \"add 0.05 ETH to <pool address> 10%\" and I'll write the ticket.";
   }
   // "collect my fees", "fees ready", "panen fee" (no position id): show what can be collected
   if (/\b(fees?|collect|claim|harvest|panen|klaim)\b/i.test(t) && !/\d{3,}/.test(t)) {

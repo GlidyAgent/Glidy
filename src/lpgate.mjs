@@ -36,7 +36,8 @@ export async function gateAdd({ pool, token, amount, widthPct = 10, sender, slip
   else add("depth", "Pool depth", tvl < 10_000 ? "fail" : tvl < 100_000 ? "warn" : "pass", `${usd(tvl)} in the pool${tvl < 10_000 ? ": too thin, prices are easy to push around" : ""}`);
   if (vol != null && tvl) {
     const apr = listed.feeAprPct;
-    add("fees", "Fee income", vol < 1000 ? "warn" : "info", `${usd(vol)} traded in 24h, about ${pct(apr ?? 0, 1)} APR for full-range liquidity. A ±${plan.widthPct.toFixed(0)}% range earns more while in range.`);
+    if (listed.aprFlag === "outlier") add("fees", "Fee income", "warn", `${usd(vol)} traded in 24h against only ${usd(tvl)} of liquidity. Volume this far above depth usually means bots or wash trading: do not count on that APR.`);
+    else add("fees", "Fee income", vol < 1000 ? "warn" : "info", `${usd(vol)} traded in 24h${apr != null ? `, about ${pct(apr, 1)} APR for full-range liquidity. A ±${plan.widthPct.toFixed(0)}% range earns more while in range` : ""}.`);
   }
 
   // tokens

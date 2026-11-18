@@ -87,10 +87,14 @@ export async function listPools({ sort = "apr", limit = 30 } = {}) {
     const t0 = tokens.get(p.relationships?.base_token?.data?.id) || {}, t1 = tokens.get(p.relationships?.quote_token?.data?.id) || {};
     for (const t of [t0, t1]) if (t.address && t.image_url) remember(t.address, t.image_url);
     const feePct = feeFromName(a.name), tvl = num(a.reserve_in_usd), vol = num(a.volume_usd?.h24);
-    const feeApr = feePct != null && tvl > 0 && vol != null ? Math.min(99999, ((vol * feePct) / 100 / tvl) * 365 * 100) : null;
+    // A tiny or mis-reported TVL, or bot/wash volume, makes volume × fee ÷ TVL explode. Those are not real yields:
+    // no APR for pools under $10K, and anything above 1,000% is flagged as an outlier instead of shown as a number.
+    const rawApr = feePct != null && tvl > 0 && vol != null ? ((vol * feePct) / 100 / tvl) * 365 * 100 : null;
+    const aprFlag = rawApr == null ? null : tvl < 10_000 ? "thin" : rawApr > 1000 ? "outlier" : null;
+    const feeApr = aprFlag ? null : rawApr;
     const tok = (t) => ({ address: t.address || null, symbol: t.symbol || "?", name: t.name || null, image: t.image_url || null, stock: !!(t.address && RH.tokens[knownToken("robinhood", t.address)?.symbol]?.stock) });
     out.push({
-      pool: a.address, name: a.name, feePct, tvlUsd: tvl, volume24hUsd: vol, feeAprPct: feeApr,
+      pool: a.address, name: a.name, feePct, tvlUsd: tvl, volume24hUsd: vol, feeAprPct: feeApr, aprFlag,
       change24hPct: num(a.price_change_percentage?.h24), base: tok(t0), quote: tok(t1),
       priceUsd: num(a.base_token_price_usd), createdAt: a.pool_created_at || null,
       txns24h: (a.transactions?.h24?.buys ?? 0) + (a.transactions?.h24?.sells ?? 0),

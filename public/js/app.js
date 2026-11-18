@@ -178,7 +178,7 @@ function lpPoolRows(list, { compact = false } = {}) {
   return `<div class="table-wrap"><table class="pools-t"><thead><tr><th>Pool</th><th>Fee APR</th><th class="num">TVL</th>${compact ? "" : `<th class="num">Volume 24h</th>`}<th class="num hide-sm">24h</th><th class="num"></th></tr></thead><tbody>
     ${list.map((p) => `<tr class="clickable" data-pool="${esc(p.pool)}">
       <td><div class="token-cell">${pair(p.base, p.quote)}<div><b>${esc(p.base.symbol)} / ${esc(p.quote.symbol)}</b><small>Uniswap v3 · ${p.feePct ?? "–"}% fee · <span class="kind k-${kindOf(p)}">${STRATS[kindOf(p)].name}</span></small></div></div></td>
-      <td class="apr-cell"><b class="apr">${pct(p.feeAprPct)}</b><span class="apr-bar"><i style="width:${Math.max(3, ((p.feeAprPct || 0) / max) * 100)}%"></i></span></td><td class="num">${usd(p.tvlUsd)}</td>${compact ? "" : `<td class="num">${usd(p.volume24hUsd)}</td>`}
+      <td class="apr-cell">${p.feeAprPct != null ? `<b class="apr">${pct(p.feeAprPct)}</b><span class="apr-bar"><i style="width:${Math.max(3, (p.feeAprPct / max) * 100)}%"></i></span>` : `<span class="tag ${p.aprFlag === "thin" ? "neutral" : "warn"}" title="${p.aprFlag === "thin" ? "Under $10K of liquidity: an APR here is not meaningful" : "Volume is far above the liquidity (bots or wash trading): the APR would be misleading"}">${p.aprFlag === "thin" ? "thin pool" : "APR unreliable"}</span>`}</td><td class="num">${usd(p.tvlUsd)}</td>${compact ? "" : `<td class="num">${usd(p.volume24hUsd)}</td>`}
       <td class="num hide-sm">${signed(p.change24hPct)}</td>
       <td class="num"><a class="btn sm primary" href="#/pool?address=${esc(p.pool)}" onclick="event.stopPropagation()">Add</a></td></tr>`).join("")}</tbody></table></div>`;
 }
