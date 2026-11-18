@@ -55,7 +55,10 @@ async function tickBlock() {
 
 function renderWallet() {
   const b = $("#walletBtn");
-  b.textContent = state.address ? short(state.address) : "Connect wallet";
+  b.innerHTML = state.address ? `${ident(state.address)}${esc(short(state.address))}` : "Connect wallet";
+  const sw = $("#sideWallet");
+  if (sw) sw.innerHTML = state.address ? `<div class="sw-row">${ident(state.address)}<div><b>${esc(short(state.address))}</b><small><i class="live-dot"></i> Robinhood Chain</small></div></div><button type="button" class="sw-out" id="swOut">Disconnect</button>` : "";
+  $("#swOut")?.addEventListener("click", onWallet);
   b.classList.toggle("primary", !state.address);
   b.title = state.address ? "Signed in. Click to sign out." : "Connect and sign in with your wallet";
   document.body.classList.toggle("locked", !state.address);
@@ -158,12 +161,24 @@ const pct = (n, d = 1) => (n == null ? "–" : `${n.toFixed(d)}%`);
 const pair = (a, b) => `<span class="pair-logos">${avatar(a.symbol, a.address, a.image, { stock: a.stock })}${avatar(b.symbol, b.address, b.image, { stock: b.stock })}</span>`;
 const fmtAmt = (x) => (x == null ? "–" : x >= 1000 ? x.toLocaleString("en-US", { maximumFractionDigits: 2 }) : x >= 1 ? x.toFixed(4) : x > 0 ? x.toPrecision(4) : "0");
 
-function lpPoolRows(list) {
-  if (!list.length) return `<div class="empty">No pools right now.</div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>Pool</th><th class="num">Fee APR</th><th class="num">TVL</th><th class="num">Volume 24h</th><th class="num hide-sm">24h</th><th class="num"></th></tr></thead><tbody>
+// Strategy buckets: majors and stables (tight ranges), tokenized stocks (medium), coins (wide).
+const MAJORS = new Set(["WETH", "ETH", "USDG"]);
+const kindOf = (p) => (p.base.stock || p.quote.stock ? "stocks" : MAJORS.has(p.base.symbol) && MAJORS.has(p.quote.symbol) ? "calm" : "coins");
+const STRATS = {
+  calm: { name: "Calm", tag: "Majors & stables", w: 5, icon: "🌊", blurb: "WETH and USDG pairs. Deep pools, tight ranges, steady fees." },
+  stocks: { name: "Stocks", tag: "Tokenized equities", w: 10, icon: "📈", blurb: "NVDA, TSLA and friends, 24/7 on-chain. Earn fees on the trading." },
+  coins: { name: "Degen", tag: "New coins", w: 50, icon: "🚀", blurb: "The hottest coins. Wild APRs, wide ranges, real risk. Checkpoint first." },
+};
+const wFor = (p) => { const m = Math.abs(p?.change24hPct || 0); return m < 1.5 ? 2 : m < 4 ? 5 : m < 9 ? 10 : m < 18 ? 20 : 50; };
+const ident = (a) => { const h1 = parseInt(String(a).slice(2, 8), 16) % 360, h2 = parseInt(String(a).slice(8, 14), 16) % 360; return `<span class="ident" style="background:conic-gradient(from 40deg, hsl(${h1} 80% 62%), hsl(${h2} 85% 58%), hsl(${h1} 80% 62%))"></span>`; };
+
+function lpPoolRows(list, { compact = false } = {}) {
+  if (!list.length) return `<div class="empty">No pools match.</div>`;
+  const max = Math.max(1, ...list.map((p) => p.feeAprPct || 0));
+  return `<div class="table-wrap"><table class="pools-t"><thead><tr><th>Pool</th><th>Fee APR</th><th class="num">TVL</th>${compact ? "" : `<th class="num">Volume 24h</th>`}<th class="num hide-sm">24h</th><th class="num"></th></tr></thead><tbody>
     ${list.map((p) => `<tr class="clickable" data-pool="${esc(p.pool)}">
-      <td><div class="token-cell">${pair(p.base, p.quote)}<div><b>${esc(p.base.symbol)} / ${esc(p.quote.symbol)}</b><small>Uniswap v3 · ${p.feePct ?? "–"}% fee${p.base.stock || p.quote.stock ? ' · <span class="tag neutral">stock</span>' : ""}</small></div></div></td>
-      <td class="num"><b class="apr">${pct(p.feeAprPct)}</b></td><td class="num">${usd(p.tvlUsd)}</td><td class="num">${usd(p.volume24hUsd)}</td>
+      <td><div class="token-cell">${pair(p.base, p.quote)}<div><b>${esc(p.base.symbol)} / ${esc(p.quote.symbol)}</b><small>Uniswap v3 · ${p.feePct ?? "–"}% fee · <span class="kind k-${kindOf(p)}">${STRATS[kindOf(p)].name}</span></small></div></div></td>
+      <td class="apr-cell"><b class="apr">${pct(p.feeAprPct)}</b><span class="apr-bar"><i style="width:${Math.max(3, ((p.feeAprPct || 0) / max) * 100)}%"></i></span></td><td class="num">${usd(p.tvlUsd)}</td>${compact ? "" : `<td class="num">${usd(p.volume24hUsd)}</td>`}
       <td class="num hide-sm">${signed(p.change24hPct)}</td>
       <td class="num"><a class="btn sm primary" href="#/pool?address=${esc(p.pool)}" onclick="event.stopPropagation()">Add</a></td></tr>`).join("")}</tbody></table></div>`;
 }
@@ -172,65 +187,101 @@ function bindPoolRows(el) {
 }
 
 function desk() {
+  const hour = new Date().getHours();
+  const kpi = (id, k, icon) => `<div class="card kpi" id="${id}"><div class="kpi-i">${icon}</div><div class="k">${k}</div><div class="v"><div class="skeleton" style="width:60%;height:24px"></div></div><div class="s">&nbsp;</div></div>`;
   view.innerHTML = `
-    <section class="desk-hero">
-      <div class="card intro">
-        <span class="eyebrow">LP agent · Robinhood Chain</span>
-        <h1 style="margin-top:14px">Your liquidity,<br><em>gliding to the best pool.</em></h1>
-        <p>Glidy ranks every Uniswap v3 pool on Robinhood Chain by fee income and risk, sizes a range around the price, checks it, and hands you a ticket. Collect fees and rebalance in one tap. You sign every move.</p>
-        <div class="row">
-          <button class="btn primary" data-ask="">✈ Ask Glidy</button>
-          <a class="btn" href="#/pools">Best pools</a>
-          <a class="btn ghost" href="#/positions">My positions →</a>
-        </div>
-      </div>
-      <div class="card">
-        <div class="panel-head"><span class="panel-title">How Glidy works</span></div>
-        <div class="steps">
-          <div class="step"><b>01</b><div><strong>Pick</strong><span>Pools ranked by fee APR, depth and volume. Thin or risky pools are flagged.</span></div></div>
-          <div class="step"><b>02</b><div><strong>Range</strong><span>A ±% range around the live price, sized from your amount. Checked for depth, token risk, IL and limits.</span></div></div>
-          <div class="step"><b>03</b><div><strong>Glide</strong><span>You sign. Then watch in-range status, collect fees, and rebalance when price leaves.</span></div></div>
-        </div>
-      </div>
+    <section class="welcome card">
+      <div class="wl-id">${ident(state.address)}<div><span class="eyebrow">${hour < 12 ? "gm" : hour < 18 ? "Good afternoon" : "Good evening"}</span><h1>${esc(short(state.address))}</h1><small class="muted">Robinhood Chain · <span id="wlBlock">live</span></small></div></div>
+      <div class="wl-act"><button class="btn primary" data-ask="">✈ Ask Glidy</button><a class="btn" href="#/pools">+ New position</a></div>
+      <div class="wl-glow" aria-hidden="true"></div>
     </section>
-    <div class="stats" id="deskStats">${["Top fee APR", "Deepest pool", "Your liquidity", "Fees ready"].map((k) => `<div class="card stat"><div class="k">${k}</div><div class="v"><div class="skeleton" style="width:60%;height:22px"></div></div></div>`).join("")}</div>
+    <div class="kpis">
+      ${kpi("kWallet", "Wallet value", "◎")}${kpi("kLiq", "In liquidity", "≋")}${kpi("kFees", "Fees ready", "✦")}${kpi("kRange", "In range", "◉")}
+    </div>
     <div class="grid">
+      <div class="card span-7">
+        <div class="panel-head"><span class="panel-title">✈ Glidy suggests</span><span class="muted" style="font-size:12px">from your wallet and positions, live</span></div>
+        <div id="insights" class="insights"><div class="skeleton"></div><div class="skeleton" style="margin-top:8px"></div></div>
+      </div>
+      <div class="card span-5">
+        <div class="panel-head"><span class="panel-title">Your wallet</span><a class="muted" href="#/portfolio" style="font-size:13px">All →</a></div>
+        <div id="wallet"><div class="skeleton"></div></div>
+      </div>
+    </div>
+    <div class="panel-head" style="margin:26px 0 12px"><span class="panel-title" style="font-size:13px">Strategies · best pool for each, live</span><a class="muted" href="#/pools" style="font-size:13px">All pools →</a></div>
+    <div class="strats" id="strats">${Object.keys(STRATS).map(() => `<div class="card strat"><div class="skeleton"></div></div>`).join("")}</div>
+    <div class="grid" style="margin-top:18px">
       <div class="card span-8">
-        <div class="panel-head"><span class="panel-title"><i class="live-dot"></i>&nbsp; Best pools for LPs</span><a class="muted" href="#/pools" style="font-size:13px">All →</a></div>
+        <div class="panel-head"><span class="panel-title"><i class="live-dot"></i>&nbsp; Top pools by fee APR</span><a class="muted" href="#/pools" style="font-size:13px">All →</a></div>
         <div id="deskPools"><div class="skeleton"></div></div>
       </div>
-      <div class="card span-4 stack">
-        <div class="panel-head" style="margin:0"><span class="panel-title">Try asking</span></div>
-        <div class="chips">${["best pools", "my positions", "pools by tvl", "collect my fees", "which range for NVDA/WETH?", "my limits"].map((t) => `<button class="chip" data-ask="${esc(t)}">${esc(t)}</button>`).join("")}</div>
-        <div class="panel-head" style="margin:10px 0 0"><span class="panel-title">Your positions</span><a class="muted" href="#/positions" style="font-size:13px">All →</a></div>
+      <div class="card span-4">
+        <div class="panel-head"><span class="panel-title">Your positions</span><a class="muted" href="#/positions" style="font-size:13px">All →</a></div>
         <div id="deskPos"><div class="skeleton"></div></div>
       </div>
     </div>`;
   view.querySelectorAll("[data-ask]").forEach((b) => (b.onclick = () => openDrawer(b.dataset.ask)));
-  const cells = $("#deskStats").children;
-  const pools = async () => {
+  api("/tools/chain_status").then((s) => ($("#wlBlock").textContent = `block #${s.block.toLocaleString("en-US")}`)).catch(() => {});
+  const setK = (id, v, s, cls = "") => { const el = $("#" + id); if (!el) return; el.querySelector(".v").innerHTML = `<span class="${cls}">${v}</span>`; el.querySelector(".s").innerHTML = s; };
+
+  let pools = [], posR = null, pf = null;
+  const insights = () => {
+    if (!posR || !pf || !pools.length) return;
+    const tips = [];
+    const tip = (kind, icon, title, body, btn) => tips.push(`<div class="ins ins-${kind}"><span class="ins-i">${icon}</span><div><b>${title}</b><small>${body}</small></div>${btn || ""}</div>`);
+    for (const p of posR.positions.filter((x) => !x.closed && x.inRange === false)) tip("warn", "!", `#${esc(p.tokenId)} ${esc(p.token0.symbol)}/${esc(p.token1.symbol)} is out of range`, `Not earning fees right now. Move it back around the price.`, `<button class="btn sm primary" data-ask="rebalance ${esc(p.tokenId)}">Rebalance</button>`);
+    for (const p of posR.positions.filter((x) => (x.feesUsd || 0) >= 0.5).slice(0, 3)) tip("good", "$", `${usd(p.feesUsd)} in fees ready on #${esc(p.tokenId)}`, `${esc(p.token0.symbol)}/${esc(p.token1.symbol)} · collect any time, your liquidity stays.`, `<button class="btn sm primary" data-ask="collect ${esc(p.tokenId)}">Collect</button>`);
+    for (const p of posR.positions.filter((x) => !x.closed && x.inRange && x.price?.now)) {
+      const k = (p.price.now - p.price.lower) / (p.price.upper - p.price.lower);
+      if (k < 0.1 || k > 0.9) tip("info", "↔", `#${esc(p.tokenId)} is close to the edge of its range`, `Price is ${k < 0.1 ? "near the lower" : "near the upper"} end. Glidy will flag it if it leaves.`, `<a class="btn sm" href="#/positions">View</a>`);
+    }
+    const eth = pf.holdings.find((h) => h.symbol === "ETH");
+    const calm = pools.filter((p) => kindOf(p) === "calm" && p.tvlUsd > 100000).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
+    if (eth && eth.valueUsd > 5 && calm) tip("idea", "✦", `${fmtAmt(eth.amount)} ETH is sitting idle`, `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)} pays ~${pct(calm.feeAprPct, 0)} APR right now. Put half to work?`, `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&token=ETH&amount=${(eth.amount / 2).toFixed(4)}&width=${wFor(calm)}">Add</a>`);
+    for (const h of pf.holdings.filter((x) => x.stock && x.valueUsd > 5).slice(0, 2)) {
+      const sp = pools.filter((p) => [p.base.symbol, p.quote.symbol].includes(h.symbol)).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
+      if (sp) tip("idea", "📈", `Your ${esc(h.symbol)} could earn fees`, `${esc(sp.base.symbol)}/${esc(sp.quote.symbol)} pays ~${pct(sp.feeAprPct, 0)} APR. Provide liquidity with it.`, `<a class="btn sm primary" href="#/pool?address=${esc(sp.pool)}&token=${esc(h.symbol)}&width=${wFor(sp)}">Add</a>`);
+    }
+    if (!posR.positions.length && !tips.length) tip("idea", "✈", "Start with a Calm position", calm ? `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)}: ~${pct(calm.feeAprPct, 0)} APR, ${usd(calm.tvlUsd)} deep. Top up ETH and add.` : "Pick a deep WETH/USDG pool first.", calm ? `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&width=${wFor(calm)}">Start</a>` : "");
+    if (!tips.length) tip("good", "✓", "All positions in range", "Nothing to do. Glidy keeps watching.", "");
+    $("#insights").innerHTML = tips.slice(0, 5).join("");
+    $("#insights").querySelectorAll("[data-ask]").forEach((b) => (b.onclick = () => openDrawer(b.dataset.ask)));
+  };
+  const loadPools = async () => {
     try {
-      const [byApr, byTvl] = await Promise.all([api("/tools/list_lp_pools?sort=apr&limit=8"), api("/tools/list_lp_pools?sort=tvl&limit=1")]);
-      $("#deskPools").innerHTML = lpPoolRows(byApr.pools); bindPoolRows($("#deskPools"));
-      const a = byApr.pools[0], t = byTvl.pools[0];
-      cells[0].innerHTML = a ? `<div class="k"><i class="live-dot"></i> Top fee APR</div><div class="v apr">${pct(a.feeAprPct)}</div><div class="s">${esc(a.name)}</div>` : "";
-      cells[1].innerHTML = t ? `<div class="k">Deepest pool</div><div class="v">${usd(t.tvlUsd)}</div><div class="s">${esc(t.name)}</div>` : "";
+      const r = await api("/tools/list_lp_pools?sort=apr&limit=60");
+      pools = r.pools.filter((p) => p.feeAprPct != null);
+      $("#deskPools").innerHTML = lpPoolRows(pools.filter((p) => p.tvlUsd > 20000).slice(0, 7), { compact: true }); bindPoolRows($("#deskPools"));
+      $("#strats").innerHTML = Object.entries(STRATS).map(([k, s]) => {
+        const best = pools.filter((p) => kindOf(p) === k && p.tvlUsd > (k === "coins" ? 30000 : 50000)).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
+        return `<a class="card strat s-${k}" href="${best ? `#/pool?address=${esc(best.pool)}&width=${Math.max(s.w, wFor(best))}` : "#/pools"}">
+          <div class="row between"><span class="st-icon">${s.icon}</span><span class="tag neutral">${esc(s.tag)}</span></div>
+          <h3>${esc(s.name)}</h3><p>${esc(s.blurb)}</p>
+          ${best ? `<div class="st-best">${pair(best.base, best.quote)}<span><b>${esc(best.base.symbol)}/${esc(best.quote.symbol)}</b><small>TVL ${usd(best.tvlUsd)} · ±${Math.max(s.w, wFor(best))}%</small></span><b class="apr">${pct(best.feeAprPct, 0)}</b></div>` : `<div class="muted">No pool right now</div>`}
+          <span class="st-go">Start ${esc(s.name)} →</span></a>`;
+      }).join("");
+      insights();
     } catch (e) { $("#deskPools").innerHTML = errorBox(e); }
   };
   const mine = async () => {
-    if (!state.address) return;
     try {
-      const r = await api("/tools/lp_positions");
-      const open = r.positions.filter((p) => !p.closed);
-      const val = open.reduce((s, p) => s + (p.valueUsd || 0), 0), fees = r.positions.reduce((s, p) => s + (p.feesUsd || 0), 0);
-      cells[2].innerHTML = `<div class="k">Your liquidity</div><div class="v">${usd(val)}</div><div class="s">${open.length} open · ${open.filter((p) => p.inRange).length} in range</div>`;
-      cells[3].innerHTML = `<div class="k">Fees ready</div><div class="v up">${usd(fees)}</div><div class="s">${fees > 0 ? "collect any time" : "nothing yet"}</div>`;
-      $("#deskPos").innerHTML = r.positions.length ? r.positions.slice(0, 5).map((p) => `<a class="row between" href="#/positions" style="padding:8px 0;border-bottom:1px solid var(--line)"><span class="token-cell">${pair(p.token0, p.token1)}<span><b>${esc(p.token0.symbol)}/${esc(p.token1.symbol)}</b><small>#${esc(p.tokenId)} · ${p.feePct}%</small></span></span><span style="text-align:right">${rangeTag(p)}<br><small class="muted">${usd(p.valueUsd)}</small></span></a>`).join("")
-        : `<div class="empty" style="padding:18px">No positions yet. <a href="#/pools" style="text-decoration:underline">Pick a pool</a>.</div>`;
-    } catch (e) { $("#deskPos").innerHTML = errorBox(e); }
+      const [r, p] = await Promise.all([api("/tools/lp_positions"), api("/tools/get_portfolio").catch(() => ({ holdings: [], totalUsd: 0 }))]);
+      posR = r; pf = p;
+      const open = r.positions.filter((x) => !x.closed);
+      const val = open.reduce((s, x) => s + (x.valueUsd || 0), 0), fees = r.positions.reduce((s, x) => s + (x.feesUsd || 0), 0);
+      setK("kWallet", usd(p.totalUsd), `${p.holdings.length} asset${p.holdings.length === 1 ? "" : "s"} on Robinhood Chain`);
+      setK("kLiq", usd(val), `${open.length} open position${open.length === 1 ? "" : "s"}`);
+      setK("kFees", usd(fees), fees > 0 ? "ready to collect" : "nothing yet", "up");
+      setK("kRange", open.length ? `${open.filter((x) => x.inRange).length}/${open.length}` : "–", open.length ? "positions earning now" : "no open positions");
+      $("#wallet").innerHTML = p.holdings.length ? p.holdings.slice(0, 5).map((h) => `<div class="wl-row"><span class="token-cell">${avatar(h.symbol, h.address, null, { stock: h.stock })}<span><b>${esc(h.symbol)}</b><small>${fmtAmt(h.amount)}</small></span></span><span class="num">${usd(h.valueUsd)}</span></div>`).join("")
+        : `<div class="empty" style="padding:18px">No ETH, USDG or stocks yet. Fund this wallet on Robinhood Chain to start.</div>`;
+      $("#deskPos").innerHTML = r.positions.length ? r.positions.slice(0, 5).map((x) => `<a class="row between pos-mini" href="#/positions"><span class="token-cell">${pair(x.token0, x.token1)}<span><b>${esc(x.token0.symbol)}/${esc(x.token1.symbol)}</b><small>#${esc(x.tokenId)} · ${x.feePct}%</small></span></span><span style="text-align:right">${rangeTag(x)}<br><small class="muted">${usd(x.valueUsd)}</small></span></a>`).join("")
+        : `<div class="empty" style="padding:18px">No positions yet.<br><a class="btn sm primary" href="#/pools" style="margin-top:10px">Pick a pool</a></div>`;
+      insights();
+    } catch (e) { $("#insights").innerHTML = errorBox(e); }
   };
-  pools(); mine();
-  every(60000, pools); every(30000, mine);
+  loadPools(); mine();
+  every(60000, loadPools); every(30000, mine);
 }
 
 const rangeTag = (p) => (p.closed ? `<span class="tag neutral">closed</span>` : p.inRange ? `<span class="tag pass">in range</span>` : `<span class="tag warn">out of range</span>`);
@@ -239,12 +290,13 @@ function poolsView(q) {
   const sort = ["apr", "tvl", "volume"].includes(q.get("sort")) ? q.get("sort") : "apr";
   view.innerHTML = head(`Pools <em>for LPs</em>`, "Every Uniswap v3 pool on Robinhood Chain, ranked for liquidity providers. Fee APR is estimated from 24h volume for full-range liquidity; a tighter range earns more while in range.",
     `<div class="row"><span class="block-pill"><i class="live-dot"></i><span id="poolUpd">live</span></span><div class="tabs" id="sortTabs">${[["apr", "Fee APR"], ["tvl", "TVL"], ["volume", "Volume"]].map(([k, l]) => `<button data-k="${k}" class="${k === sort ? "on" : ""}">${l}</button>`).join("")}</div></div>`)
-    + `<div class="card"><div class="row between" style="margin-bottom:12px"><input id="poolFilter" placeholder="Filter: WETH, NVDA, USDG…" style="max-width:280px"><span class="muted" id="poolCount" style="font-size:13px"></span></div><div id="poolTable"><div class="skeleton"></div></div></div>`;
+    + `<div class="card"><div class="row between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap"><div class="kind-tabs" id="kindTabs">${[["all", "All"], ["calm", "🌊 Calm"], ["stocks", "📈 Stocks"], ["coins", "🚀 Degen"]].map(([k, l]) => `<button data-k="${k}" class="${k === "all" ? "on" : ""}">${l}</button>`).join("")}</div><input id="poolFilter" placeholder="Search WETH, NVDA, USDG…" style="max-width:240px"><span class="muted" id="poolCount" style="font-size:13px"></span></div><div id="poolTable"><div class="skeleton"></div></div></div>`;
   $("#sortTabs").onclick = (e) => { const b = e.target.closest("button"); if (b) location.hash = `#/pools?sort=${b.dataset.k}`; };
-  let rows = [];
+  let rows = [], kind = "all";
+  $("#kindTabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; kind = b.dataset.k; $("#kindTabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); render(); };
   const render = () => {
     const f = $("#poolFilter").value.trim().toLowerCase();
-    const list = rows.filter((p) => !f || p.name.toLowerCase().includes(f) || [p.base, p.quote].some((t) => (t.name || "").toLowerCase().includes(f)));
+    const list = rows.filter((p) => (kind === "all" || kindOf(p) === kind) && (!f || p.name.toLowerCase().includes(f) || [p.base, p.quote].some((t) => (t.name || "").toLowerCase().includes(f))));
     $("#poolCount").textContent = `${list.length} pools`;
     $("#poolTable").innerHTML = lpPoolRows(list); bindPoolRows($("#poolTable"));
   };

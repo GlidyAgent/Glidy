@@ -235,12 +235,26 @@ async function runAgent() {
   }
 }
 
+// ---------- strategies: the best live pool in each bucket ----------
+const MAJORS = new Set(["WETH", "ETH", "USDG"]);
+const kindOf = (p) => (p.base.stock || p.quote.stock ? "stocks" : MAJORS.has(p.base.symbol) && MAJORS.has(p.quote.symbol) ? "calm" : "coins");
+function paintStrats() {
+  document.querySelectorAll("#strat3 .scard").forEach((card) => {
+    const k = card.dataset.k;
+    const best = byTvl.filter((p) => p.feeAprPct != null && kindOf(p) === k && p.tvlUsd > (k === "coins" ? 30000 : 50000)).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
+    if (!best) return;
+    const w = Math.max({ calm: 2, stocks: 10, coins: 50 }[k], widthFor(best));
+    card.href = `/app/#/pool?address=${best.pool}&width=${w}`;
+    card.querySelector(".sc-pool").innerHTML = `<span class="pl">${logos(best)}</span><span><b>${esc(pairName(best))}</b><small>TVL ${usd(best.tvlUsd)} · range ±${w}%</small></span><span style="text-align:right"><b class="apr">${best.feeAprPct.toFixed(0)}%</b><small>fee APR</small></span>`;
+  });
+}
+
 // ---------- load ----------
 async function load() {
   try {
     const [a, t] = await Promise.all([api("/tools/list_lp_pools?sort=apr&limit=40"), api("/tools/list_lp_pools?sort=tvl&limit=60")]);
     byApr = a.pools.filter((p) => p.feeAprPct != null && p.tvlUsd > 20000); byTvl = t.pools;
-    paintHero(); paintTape(); paintCalcPools(); paintCalcW(); updCalc(); paintPreview();
+    paintHero(); paintTape(); paintStrats(); paintCalcPools(); paintCalcW(); updCalc(); paintPreview();
     if ($(".statband").classList.contains("in")) paintStats();
     return true;
   } catch { setTimeout(load, 8000); return false; }

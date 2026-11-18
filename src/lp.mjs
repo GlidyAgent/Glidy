@@ -88,7 +88,7 @@ export async function listPools({ sort = "apr", limit = 30 } = {}) {
     for (const t of [t0, t1]) if (t.address && t.image_url) remember(t.address, t.image_url);
     const feePct = feeFromName(a.name), tvl = num(a.reserve_in_usd), vol = num(a.volume_usd?.h24);
     const feeApr = feePct != null && tvl > 0 && vol != null ? Math.min(99999, ((vol * feePct) / 100 / tvl) * 365 * 100) : null;
-    const tok = (t) => ({ address: t.address || null, symbol: t.symbol || "?", name: t.name || null, image: t.image_url || null, stock: !!(t.address && knownToken("robinhood", t.address)?.stock) });
+    const tok = (t) => ({ address: t.address || null, symbol: t.symbol || "?", name: t.name || null, image: t.image_url || null, stock: !!(t.address && RH.tokens[knownToken("robinhood", t.address)?.symbol]?.stock) });
     out.push({
       pool: a.address, name: a.name, feePct, tvlUsd: tvl, volume24hUsd: vol, feeAprPct: feeApr,
       change24hPct: num(a.price_change_percentage?.h24), base: tok(t0), quote: tok(t1),
