@@ -352,14 +352,3 @@ details p { color: var(--text-2); margin: 10px 0 0; max-width: 720px; }
 @media (max-width: 640px) { .prod-grid { grid-template-columns: 1fr; } }
 .lock-ico { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 18px; color: var(--teal); background: var(--teal-glow); border: 1px solid color-mix(in srgb, var(--teal) 30%, transparent); animation: bob 4s ease-in-out infinite; }
 .gb-icon { color: var(--teal); }
-
-/* $GLIDY contract */
-.hero-ca { display: flex; flex-direction: column; gap: 8px; margin-top: 26px; opacity: 0; animation: fadeup .8s .95s forwards; }
-.hero-ca > span { font: 600 11.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.ca-line { align-self: flex-start; display: inline-flex; align-items: center; gap: 12px; max-width: 100%; padding: 11px 14px 11px 16px; border-radius: 14px; border: 1px solid var(--line-2); background: color-mix(in srgb, var(--panel-solid) 80%, transparent); color: var(--text); cursor: pointer; font-size: 14px; transition: border-color .2s, box-shadow .2s; }
-.ca-line .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ca-line i { flex: none; font: 700 12px var(--sans); font-style: normal; color: #1f0716; background: linear-gradient(100deg, #f472b6, #fbbf24); padding: 5px 10px; border-radius: 99px; }
-.ca-line:hover { border-color: var(--teal); box-shadow: 0 12px 30px -16px rgba(244, 114, 182, .8); }
-.ca-line.copied i::after { content: " ✓"; }
-.hd .ca-chip.copied, .ca-inline.copied { color: var(--up); }
-.ft-legal .ca-inline { color: var(--text-2); }

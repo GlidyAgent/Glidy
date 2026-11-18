@@ -427,4 +427,3 @@ body.locked .nav a .badge { display: none; }
 .g-feats li svg { flex: none; width: 36px; height: 36px; padding: 8px; border-radius: 11px; background: var(--teal-glow); }
 .g-feats span { color: var(--muted); font-size: 13px; } .g-feats b { display: block; color: var(--text); font-size: 14.5px; }
 @media (max-width: 960px) { .gate2 { grid-template-columns: 1fr; } .g-right { order: 2; } .g-trust { grid-template-columns: 1fr; } }
-.ca-side { width: 100%; justify-content: space-between; }
