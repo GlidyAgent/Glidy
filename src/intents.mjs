@@ -3,16 +3,16 @@
 // Both are single use (tracked per instance and in the data dir). Executing never trusts what was prepared: it re-quotes, re-runs the
 // Checkpoint and the policy, and builds calldata from that fresh route.
 import { randomBytes } from "node:crypto";
-import { build } from "./kyber.mjs";
-import { gateSwap, quoteSwap } from "./gate.mjs";
-import { allowance, encodeApprove } from "./rpc.mjs";
-import { CHAINS, chainKey, isNative } from "./chains.mjs";
+import { gateSwap, quoteSwap } from "./sol/gate.mjs";
+import { buildSwap } from "./sol/jup.mjs";
+import { decode58, isSolAddress } from "./sol/base58.mjs";
+import { EXPLORER } from "./sol/tokens.mjs";
 import { journal } from "./journal.mjs";
 import { recordUsage } from "./policy.mjs";
 import { seal, unseal } from "./seal.mjs";
 import { update } from "./store.mjs";
 import { gateAdd } from "./lpgate.mjs";
-import { buildAddTxs, buildCollectTx, buildRemoveTx, canTakeEth, planAdd, position } from "./lp.mjs";
+import { buildAddTxs, buildCollectTx, buildRemoveTx, planAdd, position } from "./lp.mjs";
 
 const TICKET_MS = 10 * 60_000, CONFIRM_MS = 120_000;
 const PREFIX = { ticket: "tk_", confirmation: "cf_" };
@@ -21,8 +21,8 @@ const used = new Map(); // ref → expiry
 /** prepareSwap(params, { kind: "ticket" | "confirmation", owner }) → Checkpoint result plus id, or a refusal. */
 export async function prepareSwap(params, { kind = "ticket", owner = null } = {}) {
   const p = {
-    chain: chainKey(params.chain),
-    tokenIn: String(params.tokenIn || "ETH"),
+    chain: "solana",
+    tokenIn: String(params.tokenIn || "SOL"),
     tokenOut: String(params.tokenOut || ""),
     amount: String(params.amount ?? params.amountIn ?? ""),
     slippagePct: Number(params.slippagePct ?? 1),
@@ -37,7 +37,7 @@ export async function prepareSwap(params, { kind = "ticket", owner = null } = {}
   }
   const ref = randomBytes(6).toString("hex");
   const ttl = kind === "ticket" ? TICKET_MS : CONFIRM_MS;
-  const id = PREFIX[kind] + seal("intent", { k: kind, r: ref, p, o: who ? String(who).toLowerCase() : null }, ttl);
+  const id = PREFIX[kind] + seal("intent", { k: kind, r: ref, p, o: who ? String(who) : null }, ttl);
   await journal({ owner: who, kind: "swap", stage: "prepare", outcome: "ready", ref, params: p, gateStatus: gate.status });
   return { ok: true, id, ref, kind, expiresAt: new Date(Date.now() + ttl).toISOString(), gate };
 }
@@ -59,7 +59,7 @@ export function getIntent(id) {
 
 async function take(id, { owner } = {}) {
   const x = open(id);
-  if (owner && x.owner && owner.toLowerCase() !== x.owner) throw Object.assign(new Error("This ticket belongs to another wallet"), { status: 403 });
+  if (owner && x.owner && owner !== x.owner) throw Object.assign(new Error("This ticket belongs to another wallet"), { status: 403 });
   const now = Date.now();
   for (const [k, exp] of used) if (exp < now) used.delete(k);
   let seen = used.has(x.ref);
@@ -77,7 +77,7 @@ async function take(id, { owner } = {}) {
  * (an approval if needed, then the swap). The wallet signs; the server never holds a key.
  */
 export async function buildTicket(id, sender) {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(String(sender || ""))) throw Object.assign(new Error("Connect a wallet first"), { status: 400 });
+  if (!isSolAddress(sender)) throw Object.assign(new Error("Connect a wallet first"), { status: 400 });
   const x = await take(id, { owner: sender });
   if (String(x.params.action || "").startsWith("lp_")) return buildLpTicket(x, sender);
   const p = { ...x.params, sender };
@@ -86,16 +86,25 @@ export async function buildTicket(id, sender) {
     await journal({ owner: sender, kind: "swap", stage: "build", outcome: "blocked", ref: x.ref, reason: "Checkpoint failed on re-check", params: p });
     return { ok: false, reason: "Checkpoint failed on the re-check, nothing was built", gate };
   }
-  const q = await quoteSwap(p);
-  const txs = [];
-  if (!isNative(q.tokenIn.address) && (await allowance(q.chain, q.tokenIn.address, sender, q.quote.router)) < q.amountIn) {
-    txs.push({ label: `Approve ${q.amount} ${q.tokenIn.symbol}`, to: q.tokenIn.address, data: encodeApprove(q.quote.router, q.amountIn), value: "0x0" });
+  // A fresh quote, then Jupiter builds the transaction for this wallet. Its minimum-out comes from your slippage.
+  let q = await quoteSwap(p);
+  let built;
+  try { built = await buildSwap({ quoteResponse: q.quote, user: sender }); }
+  catch (e) {
+    // Some venues (often RFQ / market-maker routes) cannot be built for every wallet: re-quote without them, once.
+    const venues = [...new Set((q.quote.routePlan || []).map((r) => r.swapInfo?.label).filter(Boolean))];
+    if (!venues.length) throw e;
+    q = await quoteSwap({ ...p, excludeDexes: venues });
+    built = await buildSwap({ quoteResponse: q.quote, user: sender });
   }
-  const swap = await build({ chain: q.chain, quote: q.quote, sender, slippageBps: p.slippagePct * 100 });
-  txs.push({ label: `Swap ${q.amount} ${q.tokenIn.symbol} → ${q.tokenOut.symbol}`, to: swap.to, data: swap.data, value: "0x" + swap.value.toString(16) });
-  await recordUsage(sender, q.quote.inUsd || 0);
+  if (!built?.swapTransaction) throw new Error("Jupiter did not return a transaction");
+  await recordUsage(sender, gate.swap?.inUsd || 0);
   await journal({ owner: sender, kind: "swap", stage: "build", outcome: "built", ref: x.ref, params: p, gateStatus: gate.status });
-  return { ok: true, ref: x.ref, chainId: CHAINS[q.chain].id, explorer: CHAINS[q.chain].explorer, minOutRaw: swap.minOut.toString(), txs, gate };
+  return {
+    ok: true, ref: x.ref, chain: "solana", explorer: EXPLORER, minOutRaw: q.quote.otherAmountThreshold || null,
+    txs: [{ label: `Swap ${q.amount} ${q.tokenIn.symbol} → ${q.tokenOut.symbol}`, tx: built.swapTransaction, lastValidBlockHeight: built.lastValidBlockHeight }],
+    gate,
+  };
 }
 
 /** executeIntent(id, { dryRun, owner }) — API/MCP path. Glidy holds no keys, so live execution returns unsigned txs. */
@@ -108,7 +117,9 @@ export async function executeIntent(id, { dryRun = true, owner, sender } = {}) {
 }
 
 export async function markSent(id, { owner, hash }) {
-  if (!/^0x[0-9a-fA-F]{64}$/.test(String(hash || ""))) throw Object.assign(new Error("Invalid transaction hash"), { status: 400 });
+  let sigOk = false;
+  try { sigOk = decode58(String(hash || "")).length === 64; } catch {}
+  if (!sigOk) throw Object.assign(new Error("Invalid transaction signature"), { status: 400 });
   let x = null;
   try { x = open(id); } catch {}
   await journal({ owner, kind: x?.params?.action || "swap", stage: "sent", outcome: "sent", ref: x?.ref, hash, params: x?.params });
@@ -122,16 +133,16 @@ export async function prepareLp(params, { kind = "ticket", owner = null } = {}) 
   const who = owner || params.sender || null;
   let p, gate;
   if (action === "lp_add") {
-    p = { action, pool: String(params.pool || ""), token: String(params.token || "ETH"), amount: String(params.amount ?? ""), widthPct: Number(params.widthPct ?? 10), slippagePct: Number(params.slippagePct ?? 1), sender: who };
+    p = { action, pool: String(params.pool || ""), token: String(params.token || "SOL"), amount: String(params.amount ?? ""), widthPct: Number(params.widthPct ?? 10), slippagePct: Number(params.slippagePct ?? 1), sender: who };
     gate = await gateAdd(p);
   } else if (action === "lp_collect" || action === "lp_remove") {
     if (!who) throw Object.assign(new Error("Connect a wallet first"), { status: 401 });
     p = { action, tokenId: String(params.tokenId || ""), pct: Math.min(100, Math.max(1, Number(params.pct ?? 100))), slippagePct: Number(params.slippagePct ?? 1), sender: who };
     const pos = await position(p.tokenId, who);
-    const checks = [{ id: "owner", label: "Position", status: "pass", detail: `#${pos.tokenId} ${pos.token0.symbol}/${pos.token1.symbol} ${pos.feePct}% belongs to your wallet` }];
+    const checks = [{ id: "owner", label: "Position", status: "pass", detail: `${pos.tokenId.slice(0, 4)}…${pos.tokenId.slice(-4)} ${pos.token0.symbol}/${pos.token1.symbol} ${pos.feePct}% belongs to your wallet` }];
     if (action === "lp_collect") checks.push({ id: "fees", label: "Fees", status: pos.fees0 + pos.fees1 > 0 ? "pass" : "warn", detail: `${fmtN(pos.fees0)} ${pos.token0.symbol} + ${fmtN(pos.fees1)} ${pos.token1.symbol} ready${pos.feesUsd != null ? ` (~$${pos.feesUsd.toFixed(2)})` : ""}` });
     else checks.push({ id: "amounts", label: "You receive", status: "pass", detail: `about ${fmtN((pos.amount0 * p.pct) / 100)} ${pos.token0.symbol} + ${fmtN((pos.amount1 * p.pct) / 100)} ${pos.token1.symbol} plus fees` }, { id: "range", label: "Range", status: "info", detail: pos.inRange ? "In range and earning." : "Out of range: not earning fees right now." });
-    gate = { status: checks.some((c) => c.status === "warn") ? "warn" : "pass", chain: "robinhood", kind: action, position: pos, checks, checkedAt: new Date().toISOString() };
+    gate = { status: checks.some((c) => c.status === "warn") ? "warn" : "pass", chain: "solana", kind: action, position: pos, checks, checkedAt: new Date().toISOString() };
   } else throw Object.assign(new Error("Unknown liquidity action"), { status: 400 });
   if (gate.status === "fail") {
     await journal({ owner: who, kind: action, stage: "prepare", outcome: "blocked", reason: gate.checks.filter((c) => c.status === "fail").map((c) => c.label).join(", "), params: p });
@@ -139,7 +150,7 @@ export async function prepareLp(params, { kind = "ticket", owner = null } = {}) 
   }
   const ref = randomBytes(6).toString("hex");
   const ttl = kind === "ticket" ? TICKET_MS : CONFIRM_MS;
-  const id = PREFIX[kind] + seal("intent", { k: kind, r: ref, p, o: who ? String(who).toLowerCase() : null }, ttl);
+  const id = PREFIX[kind] + seal("intent", { k: kind, r: ref, p, o: who ? String(who) : null }, ttl);
   await journal({ owner: who, kind: action, stage: "prepare", outcome: "ready", ref, params: p, gateStatus: gate.status });
   return { ok: true, id, ref, kind, expiresAt: new Date(Date.now() + ttl).toISOString(), gate };
 }
@@ -160,9 +171,8 @@ async function buildLpTicket(x, sender) {
     if (gate.plan?.valueUsd) await recordUsage(sender, gate.plan.valueUsd);
   } else {
     const pos = await position(p.tokenId, sender);
-    const unwrap = await canTakeEth(sender);
-    txs.push(p.action === "lp_collect" ? buildCollectTx(pos, sender, { unwrap }) : buildRemoveTx(pos, sender, { pct: p.pct, slippagePct: p.slippagePct, unwrap }));
+    txs.push(p.action === "lp_collect" ? await buildCollectTx(pos, sender) : await buildRemoveTx(pos, sender, { pct: p.pct, slippagePct: p.slippagePct }));
   }
   await journal({ owner: sender, kind: p.action, stage: "build", outcome: "built", ref: x.ref, params: p });
-  return { ok: true, ref: x.ref, chainId: CHAINS.robinhood.id, explorer: CHAINS.robinhood.explorer, txs, gate };
+  return { ok: true, ref: x.ref, chain: "solana", explorer: EXPLORER, txs, gate };
 }

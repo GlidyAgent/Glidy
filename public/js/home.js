@@ -8,7 +8,7 @@ const fmt = (x) => (x == null ? "–" : x >= 1000 ? x.toLocaleString("en-US", { 
 const money = (x, d = 2) => (x == null ? "–" : "$" + x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }));
 const logos = (p) => avatar(p.base.symbol, p.base.address, p.base.image, { stock: p.base.stock }) + avatar(p.quote.symbol, p.quote.address, p.quote.image, { stock: p.quote.stock });
 const pairName = (p) => `${p.base.symbol} / ${p.quote.symbol}`;
-const hasWeth = (p) => [p.base.symbol, p.quote.symbol].includes("WETH");
+const hasSol = (p) => [p.base.symbol, p.quote.symbol].includes("SOL");
 const widthFor = (p) => { const m = Math.abs(p?.change24hPct || 0); return m < 1.5 ? 2 : m < 4 ? 5 : m < 9 ? 10 : m < 18 ? 20 : 50; };
 
 // ---------- header, theme, ambient ----------
@@ -80,11 +80,11 @@ requestAnimationFrame(frame);
 let byApr = [], byTvl = [], hero = null;
 
 function paintHero() {
-  hero = byApr.find((p) => p.tvlUsd > 150000 && hasWeth(p)) || byApr.find((p) => p.tvlUsd > 50000) || byApr[0];
+  hero = byApr.find((p) => p.tvlUsd > 150000 && hasSol(p)) || byApr.find((p) => p.tvlUsd > 50000) || byApr[0];
   if (!hero) return;
   $("#artLogos").innerHTML = logos(hero);
   $("#artName").textContent = pairName(hero);
-  $("#artSub").textContent = `Uniswap v3 · ${hero.feePct}% fee · Robinhood Chain`;
+  $("#artSub").textContent = `Orca · ${hero.feePct}% fee · Solana`;
   $("#artApr").textContent = `${hero.feeAprPct.toFixed(1)}%`;
   $("#artTvl").textContent = usd(hero.tvlUsd);
   $("#artVol").textContent = usd(hero.volume24hUsd);
@@ -119,7 +119,7 @@ function paintStats() {
 }
 
 // strategies: the best live pool in each bucket; starting one opens the app (wallet first)
-const MAJORS = new Set(["WETH", "ETH", "USDG"]);
+const MAJORS = new Set(["SOL", "WSOL", "USDC", "USDT", "JUP", "JITOSOL", "MSOL", "BSOL", "JUPSOL", "USDS", "PYUSD"]);
 const kindOf = (p) => (p.base.stock || p.quote.stock ? "stocks" : MAJORS.has(p.base.symbol) && MAJORS.has(p.quote.symbol) ? "calm" : "coins");
 function paintStrats() {
   document.querySelectorAll("#strat3 .scard").forEach((card) => {

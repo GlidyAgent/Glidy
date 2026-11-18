@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Glidy: the LP agent for Robinhood Chain. Best pools, ranges picked for you, every deposit checked, you sign every move.",
+  "description": "Glidy: the LP agent for Solana. Best Orca Whirlpools, ranges picked for you, every deposit checked, your wallet has the final say.",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -19,6 +19,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
     "@noble/curves": "^2.4.0",
-    "@noble/hashes": "^2.4.0"
+    "@noble/hashes": "^2.4.0",
+    "@orca-so/whirlpools": "^8.0.1",
+    "@solana/kit": "^5.5.1"
   }
 }

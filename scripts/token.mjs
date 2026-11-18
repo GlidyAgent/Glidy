@@ -1,4 +1,4 @@
-// npm run token -- [label] [--owner 0x…] [--execute] [--live]
+// npm run token -- [label] [--owner <wallet>] [--execute] [--live]
 // Creates an API token for REST/MCP. Printed once; only its hash is stored.
 import { createToken, setToken } from "../src/apitokens.mjs";
 

@@ -1,9 +1,10 @@
 // The Glidy Checkpoint for liquidity: every add is checked before a ticket exists. A failed check blocks it; a warning
-// shows on the ticket. Pool facts come from the chain (factory, price, ticks), depth and volume from GeckoTerminal.
-import { tokenHealth } from "./health.mjs";
-import { buildAddTxs, listPools, planAdd, planBalances, tokenPricesUsd, WETH } from "./lp.mjs";
+// shows on the ticket. Pool facts come from the chain (Whirlpool account, price, ticks), depth and volume from GeckoTerminal.
+import { tokenHealth } from "./sol/gate.mjs";
+import { SOL_MINT } from "./sol/tokens.mjs";
+import { buildAddTxs, listPools, planAdd, planBalances, tokenPricesUsd } from "./lp.mjs";
 import { checkPolicy } from "./policy.mjs";
-import { simulate } from "./rpc.mjs";
+import { simulate } from "./sol/rpc.mjs";
 import { formatUnits } from "./units.mjs";
 
 const pct = (x, d = 2) => `${Number(x).toFixed(d)}%`;
@@ -27,12 +28,12 @@ export async function gateAdd({ pool, token, amount, widthPct = 10, sender, slip
     return finish(checks);
   }
   const st = plan.state;
-  add("pool", "Pool", st.official ? "pass" : "fail", st.official ? `Uniswap v3 ${st.token0.symbol}/${st.token1.symbol} ${(st.fee / 10000).toFixed(2)}% on Robinhood Chain` : "This pool was not created by the Uniswap v3 factory. Glidy only adds liquidity to official pools.");
+  add("pool", "Pool", st.official ? "pass" : "fail", st.official ? `Orca Whirlpool ${st.token0.symbol}/${st.token1.symbol} ${st.feePct}% on Solana` : "This account is not owned by the Orca Whirlpools program. Glidy only adds liquidity to real Whirlpools.");
 
   // depth and activity from the pool list
-  const listed = (await listPools({ sort: "tvl", limit: 60 }).catch(() => ({ pools: [] }))).pools.find((p) => p.pool.toLowerCase() === st.pool);
+  const listed = (await listPools({ sort: "tvl", limit: 60 }).catch(() => ({ pools: [] }))).pools.find((p) => p.pool === st.pool);
   const tvl = listed?.tvlUsd ?? null, vol = listed?.volume24hUsd ?? null;
-  if (tvl == null) add("depth", "Pool depth", "warn", "Not in the top Uniswap v3 pools by depth: check volume and liquidity yourself.");
+  if (tvl == null) add("depth", "Pool depth", "warn", "Not in the top Orca pools by depth: check volume and liquidity yourself.");
   else add("depth", "Pool depth", tvl < 10_000 ? "fail" : tvl < 100_000 ? "warn" : "pass", `${usd(tvl)} in the pool${tvl < 10_000 ? ": too thin, prices are easy to push around" : ""}`);
   if (vol != null && tvl) {
     const apr = listed.feeAprPct;
@@ -42,9 +43,9 @@ export async function gateAdd({ pool, token, amount, widthPct = 10, sender, slip
 
   // tokens
   for (const t of [st.token0, st.token1]) {
-    if (t.address.toLowerCase() === WETH) continue;
+    if (t.address === SOL_MINT) continue;
     try {
-      const h = await tokenHealth("robinhood", t.address);
+      const h = await tokenHealth(t.address);
       if (h.known) continue;
       const worst = h.flags.some((f) => f.severity === "fail") ? "fail" : h.flags.some((f) => f.severity === "warn") ? "warn" : "pass";
       add(`token_${t.symbol}`, `Token: ${t.symbol}`, worst, `${h.summary} ${h.flags.filter((f) => f.severity !== "info").map((f) => f.text).join(" ")}`.trim());
@@ -61,9 +62,9 @@ export async function gateAdd({ pool, token, amount, widthPct = 10, sender, slip
 
   // value and policy
   const prices = await tokenPricesUsd([st.token0.address, st.token1.address]);
-  const v0 = prices[st.token0.address.toLowerCase()], v1 = prices[st.token1.address.toLowerCase()];
+  const v0 = prices[st.token0.address], v1 = prices[st.token1.address];
   const valueUsd = v0 != null && v1 != null ? (Number(plan.amount0) / 10 ** st.token0.decimals) * v0 + (Number(plan.amount1) / 10 ** st.token1.decimals) * v1 : null;
-  const policy = await checkPolicy({ address: sender, chain: "robinhood", tokens: [st.token0.address, st.token1.address], usd: valueUsd, slippagePct });
+  const policy = await checkPolicy({ address: sender, chain: "solana", tokens: [st.token0.address, st.token1.address], usd: valueUsd, slippagePct });
 
   // balances and simulation
   if (sender) {
@@ -72,17 +73,14 @@ export async function gateAdd({ pool, token, amount, widthPct = 10, sender, slip
     add("balance", "Balance", short.length ? "warn" : "pass", short.length ? `You need ${short.map((b) => `${formatUnits(b.need, b.decimals)} ${b.symbol} (have ${formatUnits(b.have, b.decimals)})`).join(" and ")}. Swap or top up first.` : `You hold ${bal.map((b) => `${formatUnits(b.need, b.decimals)} ${b.symbol}`).join(" + ")}.`);
     if (!short.length) {
       const txs = await buildAddTxs(plan, sender, slippagePct);
-      if (txs.length > 1) add("simulation", "Simulation", "info", `${txs.length - 1} approval${txs.length > 2 ? "s" : ""} first, then the deposit. The deposit is simulated again right before you sign it.`);
-      else {
-        const sim = await simulate("robinhood", { from: sender, ...txs[0] });
-        add("simulation", "Simulation", sim.ok ? "pass" : "fail", sim.ok ? "The exact deposit succeeds from your wallet right now." : `Fails in simulation: ${sim.error}`);
-      }
+      const sim = await simulate(txs[0].tx);
+      add("simulation", "Simulation", sim.ok ? "pass" : "fail", sim.ok ? `The exact deposit succeeds from your wallet right now${txs[0].rentSol ? ` (about ${txs[0].rentSol.toFixed(4)} SOL refundable rent for the position account)` : ""}.` : `Fails in simulation: ${sim.error}`);
     }
   } else add("simulation", "Simulation", "info", "Connect a wallet to check balances and simulate the deposit.");
 
   checks.push(...policy.rows);
   return finish(checks, {
-    pool: st.pool, token0: st.token0, token1: st.token1, feePct: st.fee / 10000, widthPct: plan.widthPct,
+    pool: st.pool, token0: st.token0, token1: st.token1, feePct: st.feePct, widthPct: plan.widthPct,
     amount0: plan.amount0Text, amount1: plan.amount1Text, tickLower: plan.tickLower, tickUpper: plan.tickUpper,
     price: plan.price, valueUsd, tvlUsd: tvl, volume24hUsd: vol, feeAprPct: listed?.feeAprPct ?? null,
   });
@@ -92,5 +90,5 @@ const fmt = (x) => (x >= 1000 ? x.toLocaleString("en-US", { maximumFractionDigit
 
 function finish(checks, plan = null) {
   const status = checks.some((c) => c.status === "fail") ? "fail" : checks.some((c) => c.status === "warn") ? "warn" : "pass";
-  return { status, chain: "robinhood", kind: "lp_add", plan, checks, checkedAt: new Date().toISOString() };
+  return { status, chain: "solana", kind: "lp_add", plan, checks, checkedAt: new Date().toISOString() };
 }

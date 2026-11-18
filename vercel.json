@@ -4,8 +4,17 @@
   "buildCommand": "",
   "installCommand": "npm install",
   "outputDirectory": "public",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "node_modules/@orca-so/whirlpools-core/dist/nodejs/*.wasm"
+    }
+  },
   "redirects": [
-    { "source": "/app", "destination": "/app/", "permanent": true }
+    {
+      "source": "/app",
+      "destination": "/app/",
+      "permanent": true
+    }
   ],
   "rewrites": [
     {

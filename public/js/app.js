@@ -1,7 +1,7 @@
-// Glidy app: hash-routed views, LP pools and positions on Robinhood Chain, the agent drawer, and ticket signing in the
+// Glidy app: hash-routed views, Orca LP pools and positions on Solana, the agent drawer, and ticket signing in the
 // user's own wallet.
 import {
-  ago, api, avatar, checkpointHtml, connectWallet, disconnectWallet, ensureChain, esc, fmtPrice, initTheme,
+  ago, api, avatar, checkpointHtml, connectWallet, disconnectWallet, esc, isMint, walletProvider, SOL_MINT, fmtPrice, initTheme,
   sendTx, short, signed, state, toast, usd, waitReceipt,
 } from "./lib.js";
 
@@ -15,9 +15,8 @@ const every = (ms, fn) => { timers.push(setInterval(() => { if (!document.hidden
 async function boot() {
   initTheme($("#themeBtn"));
   const [health, chains, me] = await Promise.all([api("/health"), api("/chains"), api("/auth/me").catch(() => ({}))]);
-  state.health = health; state.chains = chains; state.address = me.address || null;
-  // The website is Robinhood Chain only. (The API still accepts base, arbitrum and ethereum for developers.)
-  state.chain = "robinhood";
+  state.health = health; state.tokens = chains; state.address = me.address || null;
+  state.chain = "solana";
   if (health.mock) { const p = $("#modePill"); p.hidden = false; p.textContent = "demo data"; p.title = "GLIDY_MOCK=1: quotes and chain reads are simulated"; }
   $("#chatMode").textContent = health.llm ? "AI" : "command mode";
 
@@ -37,8 +36,8 @@ async function boot() {
   $("#chatForm").onsubmit = (e) => { e.preventDefault(); sendChat(); };
   $("#chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
   $("#chatInput").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(140, e.target.scrollHeight) + "px"; });
-  window.ethereum?.on?.("accountsChanged", async (accs) => {
-    if (state.address && accs[0]?.toLowerCase() !== state.address) { await disconnectWallet().catch(() => {}); renderWallet(); route(); toast("Wallet changed. Sign in again."); }
+  walletProvider()?.on?.("accountChanged", async (pk) => {
+    if (state.address && String(pk || "") !== state.address) { await disconnectWallet().catch(() => {}); renderWallet(); route(); toast("Wallet changed. Sign in again."); }
   });
   window.addEventListener("hashchange", route);
   tickBlock(); setInterval(() => !document.hidden && tickBlock(), 6000);
@@ -65,18 +64,18 @@ async function sideBadges() {
 async function tickBlock() {
   try {
     const s = await api("/tools/chain_status");
-    $("#blockNum").textContent = "Robinhood Chain · live";
-    $("#blockPill").title = `Live on Robinhood Chain. Latest block #${s.block.toLocaleString("en-US")}, ${s.ageSec}s ago, base fee ${s.baseFeeGwei?.toFixed(4)} gwei. Click to open it in the explorer.`;
-    $("#blockPill").href = `https://robinhoodchain.blockscout.com/block/${s.block}`;
+    $("#blockNum").textContent = "Solana · live";
+    $("#blockPill").title = `Live on Solana. Slot ${s.slot.toLocaleString("en-US")}${s.tps ? `, ~${s.tps.toLocaleString("en-US")} transactions per second` : ""}. Click to open it in the explorer.`;
+    $("#blockPill").href = `https://solscan.io/block/${s.slot}`;
     $("#blockPill").classList.remove("offline");
-  } catch { $("#blockNum").textContent = "Robinhood Chain · offline"; $("#blockPill").classList.add("offline"); }
+  } catch { $("#blockNum").textContent = "Solana · offline"; $("#blockPill").classList.add("offline"); }
 }
 
 function renderWallet() {
   const b = $("#walletBtn");
   b.innerHTML = state.address ? `${ident(state.address)}${esc(short(state.address))}` : "Connect wallet";
   const sw = $("#sideWallet");
-  if (sw) sw.innerHTML = state.address ? `<div class="sw-row">${ident(state.address)}<div><b>${esc(short(state.address))}</b><small><i class="live-dot"></i> Robinhood Chain</small></div></div><button type="button" class="sw-out" id="swOut">Disconnect</button>` : "";
+  if (sw) sw.innerHTML = state.address ? `<div class="sw-row">${ident(state.address)}<div><b>${esc(short(state.address))}</b><small><i class="live-dot"></i> Solana</small></div></div><button type="button" class="sw-out" id="swOut">Disconnect</button>` : "";
   $("#swOut")?.addEventListener("click", onWallet);
   b.classList.toggle("primary", !state.address);
   b.title = state.address ? "Signed in. Click to sign out." : "Connect and sign in with your wallet";
@@ -111,16 +110,16 @@ const ICON = {
 const ico = (k, s = 18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
 
 function gate(r) {
-  const eth = window.ethereum;
+  const hasWallet = !!walletProvider();
   const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  const dappUrl = location.host + location.pathname + location.hash;
-  const name = !eth ? null : eth.isRabby ? "Rabby" : eth.isCoinbaseWallet ? "Coinbase Wallet" : eth.isMetaMask ? "MetaMask" : eth.isOkxWallet || eth.isOKExWallet ? "OKX Wallet" : "Browser wallet";
+  const w = walletProvider();
+  const name = !w ? null : w.isPhantom ? "Phantom" : w.isSolflare ? "Solflare" : w.isBackpack ? "Backpack" : "Solana wallet";
   const opt = (label, sub, mono, attrs, tag = "") => `<${attrs.startsWith("href") ? "a" : "button type=\"button\""} class="wopt" ${attrs}><span class="wo-mono">${mono}</span><span class="wo-txt"><b>${label}</b><small>${sub}</small></span>${tag}<span class="wo-go">${ico("arrow", 16)}</span></${attrs.startsWith("href") ? "a" : "button"}>`;
-  const options = eth
+  const options = hasWallet
     ? opt(`Continue with ${name}`, "Sign one message to enter", name[0], 'id="gateConnect"', '<span class="wo-tag">Detected</span>')
     : mobile
-      ? opt("MetaMask", "Open Glidy in the MetaMask app", "M", `href="https://metamask.app.link/dapp/${esc(dappUrl)}"`) + opt("Coinbase Wallet", "Open Glidy in Coinbase Wallet", "C", `href="https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(location.href)}"`)
-      : opt("Install MetaMask", "Then reload this page", "M", 'href="https://metamask.io/download/" target="_blank" rel="noopener"') + opt("Install Rabby", "Then reload this page", "R", 'href="https://rabby.io" target="_blank" rel="noopener"');
+      ? opt("Phantom", "Open Glidy in the Phantom app", "P", `href="https://phantom.app/ul/browse/${encodeURIComponent(location.href)}?ref=${encodeURIComponent(location.origin)}"`) + opt("Solflare", "Open Glidy in the Solflare app", "S", `href="https://solflare.com/ul/v1/browse/${encodeURIComponent(location.href)}?ref=${encodeURIComponent(location.origin)}"`)
+      : opt("Install Phantom", "Then reload this page", "P", 'href="https://phantom.com/download" target="_blank" rel="noopener"') + opt("Install Solflare", "Then reload this page", "S", 'href="https://solflare.com" target="_blank" rel="noopener"') + opt("Install Backpack", "Then reload this page", "B", 'href="https://backpack.app" target="_blank" rel="noopener"');
   view.innerHTML = `
     <section class="gate2">
       <div class="g-left">
@@ -136,7 +135,7 @@ function gate(r) {
       </div>
       <div class="g-right">
         <div class="g-card">
-          <div class="g-card-head"><span class="g-logo"><img src="/img/glidy.svg" alt=""></span><div><b>Inside Glidy</b><small>Uniswap v3 · Robinhood Chain</small></div><span class="g-live"><i></i>live</span></div>
+          <div class="g-card-head"><span class="g-logo"><img src="/img/glidy.svg" alt=""></span><div><b>Inside Glidy</b><small>Orca Whirlpools · Solana</small></div><span class="g-live"><i></i>live</span></div>
           <div class="g-stat" id="gStat"><small>Top fee APR right now</small><b class="g-apr">—</b><span>Loading pools…</span></div>
           <ul class="g-feats">
             <li>${ico("pools")}<span><b>Smart Pools</b>Every pool ranked by fee APR and depth</span></li>
@@ -168,7 +167,7 @@ function route() {
   window.scrollTo(0, 0);
 }
 
-const chainName = () => state.chains.find((c) => c.key === state.chain)?.name || state.chain;
+const chainName = () => "Solana";
 const head = (title, sub, right = "") => `<div class="page-head"><div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>${right}</div>`;
 const errorBox = (e) => `<div class="empty">${esc(e.message || e)}</div>`;
 
@@ -212,22 +211,22 @@ const pair = (a, b) => `<span class="pair-logos">${avatar(a.symbol, a.address, a
 const fmtAmt = (x) => (x == null ? "–" : x >= 1000 ? x.toLocaleString("en-US", { maximumFractionDigits: 2 }) : x >= 1 ? x.toFixed(4) : x > 0 ? x.toPrecision(4) : "0");
 
 // Strategy buckets: majors and stables (tight ranges), tokenized stocks (medium), coins (wide).
-const MAJORS = new Set(["WETH", "ETH", "USDG"]);
+const MAJORS = new Set(["SOL", "WSOL", "USDC", "USDT", "JUP", "JITOSOL", "MSOL", "BSOL", "JUPSOL", "USDS", "PYUSD"]);
 const kindOf = (p) => (p.base.stock || p.quote.stock ? "stocks" : MAJORS.has(p.base.symbol) && MAJORS.has(p.quote.symbol) ? "calm" : "coins");
 const STRATS = {
-  calm: { name: "Calm", tag: "Majors & stables", w: 5, blurb: "WETH and USDG pairs. Deep pools, tight ranges, steady fees." },
-  stocks: { name: "Stocks", tag: "Tokenized equities", w: 10, blurb: "NVDA, TSLA and friends, 24/7 on-chain. Earn fees on the trading." },
+  calm: { name: "Calm", tag: "Majors & stables", w: 5, blurb: "SOL, USDC and USDT pairs. Deep pools, tight ranges, steady fees." },
+  stocks: { name: "Stocks", tag: "Tokenized equities", w: 10, blurb: "NVDAx, TSLAx and friends, 24/7 on-chain. Earn fees on the trading." },
   coins: { name: "Degen", tag: "New coins", w: 50, blurb: "The hottest coins. Wild APRs, wide ranges, real risk. Checkpoint first." },
 };
 const wFor = (p) => { const m = Math.abs(p?.change24hPct || 0); return m < 1.5 ? 2 : m < 4 ? 5 : m < 9 ? 10 : m < 18 ? 20 : 50; };
-const ident = (a) => { const h1 = parseInt(String(a).slice(2, 8), 16) % 360, h2 = parseInt(String(a).slice(8, 14), 16) % 360; return `<span class="ident" style="background:conic-gradient(from 40deg, hsl(${h1} 80% 62%), hsl(${h2} 85% 58%), hsl(${h1} 80% 62%))"></span>`; };
+const ident = (a) => { const hh = (str) => [...str].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7); const h1 = hh(String(a).slice(0, 8)) % 360, h2 = hh(String(a).slice(8, 16)) % 360; return `<span class="ident" style="background:conic-gradient(from 40deg, hsl(${h1} 80% 62%), hsl(${h2} 85% 58%), hsl(${h1} 80% 62%))"></span>`; };
 
 function lpPoolRows(list, { compact = false } = {}) {
   if (!list.length) return `<div class="empty">No pools match.</div>`;
   const max = Math.max(1, ...list.map((p) => p.feeAprPct || 0));
   return `<div class="table-wrap"><table class="pools-t"><thead><tr><th>Pool</th><th>Fee APR</th><th class="num">TVL</th>${compact ? "" : `<th class="num">Volume 24h</th>`}<th class="num hide-sm">24h</th><th class="num"></th></tr></thead><tbody>
     ${list.map((p) => `<tr class="clickable" data-pool="${esc(p.pool)}">
-      <td><div class="token-cell">${pair(p.base, p.quote)}<div><b>${esc(p.base.symbol)} / ${esc(p.quote.symbol)}</b><small>Uniswap v3 · ${p.feePct ?? "–"}% fee · <span class="kind k-${kindOf(p)}">${STRATS[kindOf(p)].name}</span></small></div></div></td>
+      <td><div class="token-cell">${pair(p.base, p.quote)}<div><b>${esc(p.base.symbol)} / ${esc(p.quote.symbol)}</b><small>Orca · ${p.feePct ?? "–"}% fee · <span class="kind k-${kindOf(p)}">${STRATS[kindOf(p)].name}</span></small></div></div></td>
       <td class="apr-cell">${p.feeAprPct != null ? `<b class="apr">${pct(p.feeAprPct)}</b><span class="apr-bar"><i style="width:${Math.max(3, (p.feeAprPct / max) * 100)}%"></i></span>` : `<span class="tag ${p.aprFlag === "thin" ? "neutral" : "warn"}" title="${p.aprFlag === "thin" ? "Under $10K of liquidity: an APR here is not meaningful" : "Volume is far above the liquidity (bots or wash trading): the APR would be misleading"}">${p.aprFlag === "thin" ? "thin pool" : "APR unreliable"}</span>`}</td><td class="num">${usd(p.tvlUsd)}</td>${compact ? "" : `<td class="num">${usd(p.volume24hUsd)}</td>`}
       <td class="num hide-sm">${signed(p.change24hPct)}</td>
       <td class="num"><a class="btn sm primary" href="#/pool?address=${esc(p.pool)}" onclick="event.stopPropagation()">Add</a></td></tr>`).join("")}</tbody></table></div>`;
@@ -241,7 +240,7 @@ function desk() {
   const kpi = (id, k, icon) => `<div class="card kpi" id="${id}"><div class="kpi-i">${icon}</div><div class="k">${k}</div><div class="v"><div class="skeleton" style="width:60%;height:24px"></div></div><div class="s">&nbsp;</div></div>`;
   view.innerHTML = `
     <section class="welcome card">
-      <div class="wl-id">${ident(state.address)}<div><span class="eyebrow">${hour < 12 ? "gm" : hour < 18 ? "Good afternoon" : "Good evening"}</span><h1>${esc(short(state.address))}</h1><small class="muted">Robinhood Chain · <span id="wlBlock">live</span></small></div></div>
+      <div class="wl-id">${ident(state.address)}<div><span class="eyebrow">${hour < 12 ? "gm" : hour < 18 ? "Good afternoon" : "Good evening"}</span><h1>${esc(short(state.address))}</h1><small class="muted">Solana · <span id="wlBlock">live</span></small></div></div>
       <div class="wl-act"><button class="btn primary" data-ask="">✈ Ask Glidy</button><a class="btn" href="#/pools">+ New position</a></div>
       <div class="wl-glow" aria-hidden="true"></div>
     </section>
@@ -271,7 +270,7 @@ function desk() {
       </div>
     </div>`;
   view.querySelectorAll("[data-ask]").forEach((b) => (b.onclick = () => openDrawer(b.dataset.ask)));
-  api("/tools/chain_status").then((s) => ($("#wlBlock").textContent = `block #${s.block.toLocaleString("en-US")}`)).catch(() => {});
+  api("/tools/chain_status").then((s) => ($("#wlBlock").textContent = `slot ${s.slot.toLocaleString("en-US")}`)).catch(() => {});
   const setK = (id, v, s, cls = "") => { const el = $("#" + id); if (!el) return; el.querySelector(".v").innerHTML = `<span class="${cls}">${v}</span>`; el.querySelector(".s").innerHTML = s; };
 
   let pools = [], posR = null, pf = null;
@@ -279,20 +278,20 @@ function desk() {
     if (!posR || !pf || !pools.length) return;
     const tips = [];
     const tip = (kind, icon, title, body, btn) => tips.push(`<div class="ins ins-${kind}"><span class="ins-i">${icon}</span><div><b>${title}</b><small>${body}</small></div>${btn || ""}</div>`);
-    for (const p of posR.positions.filter((x) => !x.closed && x.inRange === false)) tip("warn", "!", `#${esc(p.tokenId)} ${esc(p.token0.symbol)}/${esc(p.token1.symbol)} is out of range`, `Not earning fees right now. Move it back around the price.`, `<button class="btn sm primary" data-ask="rebalance ${esc(p.tokenId)}">Rebalance</button>`);
-    for (const p of posR.positions.filter((x) => (x.feesUsd || 0) >= 0.5).slice(0, 3)) tip("good", "$", `${usd(p.feesUsd)} in fees ready on #${esc(p.tokenId)}`, `${esc(p.token0.symbol)}/${esc(p.token1.symbol)} · collect any time, your liquidity stays.`, `<button class="btn sm primary" data-ask="collect ${esc(p.tokenId)}">Collect</button>`);
+    for (const p of posR.positions.filter((x) => !x.closed && x.inRange === false)) tip("warn", "!", `${esc(short(p.tokenId))} ${esc(p.token0.symbol)}/${esc(p.token1.symbol)} is out of range`, `Not earning fees right now. Move it back around the price.`, `<button class="btn sm primary" data-ask="rebalance ${esc(p.tokenId)}">Rebalance</button>`);
+    for (const p of posR.positions.filter((x) => (x.feesUsd || 0) >= 0.5).slice(0, 3)) tip("good", "$", `${usd(p.feesUsd)} in fees ready on ${esc(short(p.tokenId))}`, `${esc(p.token0.symbol)}/${esc(p.token1.symbol)} · collect any time, your liquidity stays.`, `<button class="btn sm primary" data-ask="collect ${esc(p.tokenId)}">Collect</button>`);
     for (const p of posR.positions.filter((x) => !x.closed && x.inRange && x.price?.now)) {
       const k = (p.price.now - p.price.lower) / (p.price.upper - p.price.lower);
-      if (k < 0.1 || k > 0.9) tip("info", "↔", `#${esc(p.tokenId)} is close to the edge of its range`, `Price is ${k < 0.1 ? "near the lower" : "near the upper"} end. Glidy will flag it if it leaves.`, `<a class="btn sm" href="#/positions">View</a>`);
+      if (k < 0.1 || k > 0.9) tip("info", "↔", `${esc(short(p.tokenId))} is close to the edge of its range`, `Price is ${k < 0.1 ? "near the lower" : "near the upper"} end. Glidy will flag it if it leaves.`, `<a class="btn sm" href="#/positions">View</a>`);
     }
-    const eth = pf.holdings.find((h) => h.symbol === "ETH");
+    const sol = pf.holdings.find((h) => h.symbol === "SOL");
     const calm = pools.filter((p) => kindOf(p) === "calm" && p.tvlUsd > 100000).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
-    if (eth && eth.valueUsd > 5 && calm) tip("idea", "✦", `${fmtAmt(eth.amount)} ETH is sitting idle`, `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)} pays ~${pct(calm.feeAprPct, 0)} APR right now. Put half to work?`, `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&token=ETH&amount=${(eth.amount / 2).toFixed(4)}&width=${wFor(calm)}">Add</a>`);
+    if (sol && sol.valueUsd > 5 && calm) tip("idea", "✦", `${fmtAmt(sol.amount)} SOL is sitting idle`, `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)} pays ~${pct(calm.feeAprPct, 0)} APR right now. Put half to work?`, `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&token=SOL&amount=${(Math.max(0, sol.amount - 0.05) / 2).toFixed(4)}&width=${wFor(calm)}">Add</a>`);
     for (const h of pf.holdings.filter((x) => x.stock && x.valueUsd > 5).slice(0, 2)) {
       const sp = pools.filter((p) => [p.base.symbol, p.quote.symbol].includes(h.symbol)).sort((a, b) => b.feeAprPct - a.feeAprPct)[0];
       if (sp) tip("idea", "↗", `Your ${esc(h.symbol)} could earn fees`, `${esc(sp.base.symbol)}/${esc(sp.quote.symbol)} pays ~${pct(sp.feeAprPct, 0)} APR. Provide liquidity with it.`, `<a class="btn sm primary" href="#/pool?address=${esc(sp.pool)}&token=${esc(h.symbol)}&width=${wFor(sp)}">Add</a>`);
     }
-    if (!posR.positions.length && !tips.length) tip("idea", "✈", "Start with a Calm position", calm ? `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)}: ~${pct(calm.feeAprPct, 0)} APR, ${usd(calm.tvlUsd)} deep. Top up ETH and add.` : "Pick a deep WETH/USDG pool first.", calm ? `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&width=${wFor(calm)}">Start</a>` : "");
+    if (!posR.positions.length && !tips.length) tip("idea", "✈", "Start with a Calm position", calm ? `${esc(calm.base.symbol)}/${esc(calm.quote.symbol)}: ~${pct(calm.feeAprPct, 0)} APR, ${usd(calm.tvlUsd)} deep. Top up SOL and add.` : "Pick a deep SOL/USDC pool first.", calm ? `<a class="btn sm primary" href="#/pool?address=${esc(calm.pool)}&width=${wFor(calm)}">Start</a>` : "");
     if (!tips.length) tip("good", "✓", "All positions in range", "Nothing to do. Glidy keeps watching.", "");
     $("#insights").innerHTML = tips.slice(0, 5).join("");
     $("#insights").querySelectorAll("[data-ask]").forEach((b) => (b.onclick = () => openDrawer(b.dataset.ask)));
@@ -319,13 +318,13 @@ function desk() {
       posR = r; pf = p;
       const open = r.positions.filter((x) => !x.closed);
       const val = open.reduce((s, x) => s + (x.valueUsd || 0), 0), fees = r.positions.reduce((s, x) => s + (x.feesUsd || 0), 0);
-      setK("kWallet", usd(p.totalUsd), `${p.holdings.length} asset${p.holdings.length === 1 ? "" : "s"} on Robinhood Chain`);
+      setK("kWallet", usd(p.totalUsd), `${p.holdings.length} asset${p.holdings.length === 1 ? "" : "s"} on Solana`);
       setK("kLiq", usd(val), `${open.length} open position${open.length === 1 ? "" : "s"}`);
       setK("kFees", usd(fees), fees > 0 ? "ready to collect" : "nothing yet", "up");
       setK("kRange", open.length ? `${open.filter((x) => x.inRange).length}/${open.length}` : "–", open.length ? "positions earning now" : "no open positions");
       $("#wallet").innerHTML = p.holdings.length ? p.holdings.slice(0, 5).map((h) => `<div class="wl-row"><span class="token-cell">${avatar(h.symbol, h.address, null, { stock: h.stock })}<span><b>${esc(h.symbol)}</b><small>${fmtAmt(h.amount)}</small></span></span><span class="num">${usd(h.valueUsd)}</span></div>`).join("")
-        : `<div class="empty" style="padding:18px">No ETH, USDG or stocks yet. Fund this wallet on Robinhood Chain to start.</div>`;
-      $("#deskPos").innerHTML = r.positions.length ? r.positions.slice(0, 5).map((x) => `<a class="row between pos-mini" href="#/positions"><span class="token-cell">${pair(x.token0, x.token1)}<span><b>${esc(x.token0.symbol)}/${esc(x.token1.symbol)}</b><small>#${esc(x.tokenId)} · ${x.feePct}%</small></span></span><span style="text-align:right">${rangeTag(x)}<br><small class="muted">${usd(x.valueUsd)}</small></span></a>`).join("")
+        : `<div class="empty" style="padding:18px">No SOL, USDC or xStocks yet. Fund this wallet on Solana to start.</div>`;
+      $("#deskPos").innerHTML = r.positions.length ? r.positions.slice(0, 5).map((x) => `<a class="row between pos-mini" href="#/positions"><span class="token-cell">${pair(x.token0, x.token1)}<span><b>${esc(x.token0.symbol)}/${esc(x.token1.symbol)}</b><small>${esc(short(x.tokenId))} · ${x.feePct}%</small></span></span><span style="text-align:right">${rangeTag(x)}<br><small class="muted">${usd(x.valueUsd)}</small></span></a>`).join("")
         : `<div class="empty" style="padding:18px">No positions yet.<br><a class="btn sm primary" href="#/pools" style="margin-top:10px">Pick a pool</a></div>`;
       insights();
     } catch (e) { $("#insights").innerHTML = errorBox(e); }
@@ -338,9 +337,9 @@ const rangeTag = (p) => (p.closed ? `<span class="tag neutral">closed</span>` : 
 
 function poolsView(q) {
   const sort = ["apr", "tvl", "volume"].includes(q.get("sort")) ? q.get("sort") : "apr";
-  view.innerHTML = head(`Pools <em>for LPs</em>`, "Every Uniswap v3 pool on Robinhood Chain, ranked for liquidity providers. Fee APR is estimated from 24h volume for full-range liquidity; a tighter range earns more while in range.",
+  view.innerHTML = head(`Pools <em>for LPs</em>`, "Orca Whirlpools on Solana, ranked for liquidity providers. Fee APR is estimated from 24h volume for full-range liquidity; a tighter range earns more while in range.",
     `<div class="row"><span class="block-pill"><i class="live-dot"></i><span id="poolUpd">live</span></span><div class="tabs" id="sortTabs">${[["apr", "Fee APR"], ["tvl", "TVL"], ["volume", "Volume"]].map(([k, l]) => `<button data-k="${k}" class="${k === sort ? "on" : ""}">${l}</button>`).join("")}</div></div>`)
-    + `<div class="card"><div class="row between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap"><div class="kind-tabs" id="kindTabs">${[["all", "All"], ["calm", "Calm"], ["stocks", "Stocks"], ["coins", "Degen"]].map(([k, l]) => `<button data-k="${k}" class="${k === "all" ? "on" : ""}">${l}</button>`).join("")}</div><input id="poolFilter" placeholder="Search WETH, NVDA, USDG…" style="max-width:240px"><span class="muted" id="poolCount" style="font-size:13px"></span></div><div id="poolTable"><div class="skeleton"></div></div></div>`;
+    + `<div class="card"><div class="row between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap"><div class="kind-tabs" id="kindTabs">${[["all", "All"], ["calm", "Calm"], ["stocks", "Stocks"], ["coins", "Degen"]].map(([k, l]) => `<button data-k="${k}" class="${k === "all" ? "on" : ""}">${l}</button>`).join("")}</div><input id="poolFilter" placeholder="Search SOL, NVDAx, USDC…" style="max-width:240px"><span class="muted" id="poolCount" style="font-size:13px"></span></div><div id="poolTable"><div class="skeleton"></div></div></div>`;
   $("#sortTabs").onclick = (e) => { const b = e.target.closest("button"); if (b) location.hash = `#/pools?sort=${b.dataset.k}`; };
   let rows = [], kind = "all";
   $("#kindTabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; kind = b.dataset.k; $("#kindTabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); render(); };
@@ -363,7 +362,7 @@ async function poolView(q) {
   view.innerHTML = `<div id="pHead"><div class="skeleton" style="width:260px;height:34px"></div></div>
     <div class="grid" style="margin-top:22px">
       <form class="card span-5 stack" id="addForm" autocomplete="off">
-        <div class="panel-head" style="margin:0"><span class="panel-title">Add liquidity</span><span class="muted" style="font-size:12px">Uniswap v3</span></div>
+        <div class="panel-head" style="margin:0"><span class="panel-title">Add liquidity</span><span class="muted" style="font-size:12px">Orca Whirlpools</span></div>
         <div class="field"><label for="aAmt">You deposit</label><div class="leg-row"><input class="amt" id="aAmt" inputmode="decimal" value="${esc(q.get("amount") || "0.01")}" required aria-label="Amount"><div class="seg" id="aSide"></div></div></div>
         <div class="field"><label>Range around the price</label><div class="seg" id="aWidth">${[2, 5, 10, 20, 50].map((w) => `<button type="button" data-w="${w}" class="${w === Number(q.get("width") || 10) ? "on" : ""}">±${w}%</button>`).join("")}</div>
           <small class="muted">Tighter earns more fees while price stays inside; wider stays in range longer. Volatile coins want wider.</small></div>
@@ -375,14 +374,14 @@ async function poolView(q) {
   let st, side, width = Number(q.get("width") || 10);
   try {
     st = await api(`/tools/pool_state?pool=${encodeURIComponent(address)}`);
-    const listed = (await api("/tools/list_lp_pools?sort=tvl&limit=60").catch(() => ({ pools: [] }))).pools.find((p) => p.pool.toLowerCase() === address.toLowerCase());
-    const t0 = { ...st.token0, image: listed && listed.base.address?.toLowerCase() === st.token0.address.toLowerCase() ? listed.base.image : listed?.quote.image };
-    const t1 = { ...st.token1, image: listed && listed.base.address?.toLowerCase() === st.token1.address.toLowerCase() ? listed.base.image : listed?.quote.image };
-    $("#pHead").innerHTML = `<div class="page-head" style="margin:0"><div class="token-hero">${pair(t0, t1)}<div><h1>${esc(st.token0.symbol)} / ${esc(st.token1.symbol)}</h1><span class="muted">Uniswap v3 · ${(st.fee / 10000).toFixed(2)}% fee · <span class="mono">${esc(short(st.pool))}</span>${st.official ? "" : ' · <span class="tag fail">not official</span>'}</span></div></div>
+    const listed = (await api("/tools/list_lp_pools?sort=tvl&limit=60").catch(() => ({ pools: [] }))).pools.find((p) => p.pool === address);
+    const t0 = { ...st.token0, image: listed && listed.base.address === st.token0.address ? listed.base.image : listed?.quote.image };
+    const t1 = { ...st.token1, image: listed && listed.base.address === st.token1.address ? listed.base.image : listed?.quote.image };
+    $("#pHead").innerHTML = `<div class="page-head" style="margin:0"><div class="token-hero">${pair(t0, t1)}<div><h1>${esc(st.token0.symbol)} / ${esc(st.token1.symbol)}</h1><span class="muted">Orca · ${st.feePct}% fee · <span class="mono">${esc(short(st.pool))}</span>${st.official ? "" : ' · <span class="tag fail">not a Whirlpool</span>'}</span></div></div>
       <div style="text-align:right"><div class="price-big">${fmtAmt(st.price)}</div><div class="muted" style="font-size:13px">${esc(st.token1.symbol)} per ${esc(st.token0.symbol)}</div></div></div>
       ${listed ? `<div class="stats" style="margin-top:20px">${[["Fee APR", `<span class="apr">${pct(listed.feeAprPct)}</span>`, "full range, from 24h volume"], ["TVL", usd(listed.tvlUsd), "in the pool"], ["Volume 24h", usd(listed.volume24hUsd), `${listed.txns24h.toLocaleString("en-US")} swaps`], ["24h", signed(listed.change24hPct), "price change"]].map(([k, v, s]) => `<div class="card stat"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")}</div>` : ""}`;
-    const sides = [st.token0, st.token1].map((t) => (t.symbol === "WETH" ? "ETH" : t.symbol));
-    side = sides.includes(q.get("token")) ? q.get("token") : sides.includes("ETH") ? "ETH" : sides[0];
+    const sides = [st.token0, st.token1].map((t) => t.symbol);
+    side = sides.includes(q.get("token")) ? q.get("token") : sides.includes("SOL") ? "SOL" : sides[0];
     $("#aSide").innerHTML = sides.map((s) => `<button type="button" data-s="${esc(s)}" class="${s === side ? "on" : ""}">${esc(s)}</button>`).join("");
   } catch (e) { $("#pHead").innerHTML = errorBox(e); return; }
   const viz = () => {
@@ -405,19 +404,19 @@ async function poolView(q) {
 }
 
 async function positionsView() {
-  view.innerHTML = head(`My <em>positions</em>`, `Your Uniswap v3 liquidity on Robinhood Chain, read live from the chain for <span class="mono">${esc(short(state.address))}</span>.`, `<a class="btn primary" href="#/pools">+ New position</a>`)
+  view.innerHTML = head(`My <em>positions</em>`, `Your Orca Whirlpool positions on Solana, read live from the chain for <span class="mono">${esc(short(state.address))}</span>.`, `<a class="btn primary" href="#/pools">+ New position</a>`)
     + `<div id="posStats"></div><div id="posList"><div class="card"><span class="spinner"></span>&nbsp; Reading your positions…</div></div><div id="posOut" class="stack" style="margin-top:16px"></div>`;
   const load = async () => {
     try {
       const r = await api("/tools/lp_positions");
       const open = r.positions.filter((p) => !p.closed);
       const val = open.reduce((s, p) => s + (p.valueUsd || 0), 0), fees = r.positions.reduce((s, p) => s + (p.feesUsd || 0), 0);
-      $("#posStats").innerHTML = `<div class="stats">${[["Liquidity", usd(val), `${open.length} open position${open.length === 1 ? "" : "s"}`], ["Fees ready", `<span class="up">${usd(fees)}</span>`, "uncollected"], ["In range", `${open.filter((p) => p.inRange).length}/${open.length}`, "earning now"], ["NFTs", String(r.total), "Uniswap v3 positions"]].map(([k, v, s]) => `<div class="card stat"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")}</div>`;
-      if (!r.positions.length) { $("#posList").innerHTML = `<div class="card empty">No Uniswap v3 positions in this wallet on Robinhood Chain yet. <a href="#/pools" style="text-decoration:underline">Find a pool</a>.</div>`; return; }
+      $("#posStats").innerHTML = `<div class="stats">${[["Liquidity", usd(val), `${open.length} open position${open.length === 1 ? "" : "s"}`], ["Fees ready", `<span class="up">${usd(fees)}</span>`, "uncollected"], ["In range", `${open.filter((p) => p.inRange).length}/${open.length}`, "earning now"], ["Positions", String(r.total), "Orca Whirlpools"]].map(([k, v, s]) => `<div class="card stat"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")}</div>`;
+      if (!r.positions.length) { $("#posList").innerHTML = `<div class="card empty">No Orca positions in this wallet yet. <a href="#/pools" style="text-decoration:underline">Find a pool</a>.</div>`; return; }
       $("#posList").innerHTML = `<div class="pos-grid">${r.positions.map((p) => {
         const span = p.price.upper - p.price.lower, at = p.price.now == null ? 50 : Math.max(-4, Math.min(104, ((p.price.now - p.price.lower) / span) * 100));
         return `<div class="card pos">
-          <div class="row between"><div class="token-cell">${pair(p.token0, p.token1)}<div><b>${esc(p.token0.symbol)} / ${esc(p.token1.symbol)}</b><small>#${esc(p.tokenId)} · ${p.feePct}% fee</small></div></div>${rangeTag(p)}</div>
+          <div class="row between"><div class="token-cell">${pair(p.token0, p.token1)}<div><b>${esc(p.token0.symbol)} / ${esc(p.token1.symbol)}</b><small>${esc(short(p.tokenId))} · ${p.feePct}% fee</small></div></div>${rangeTag(p)}</div>
           <div class="rv-bar" style="margin:16px 0 6px"><span class="rv-in" style="left:0;width:100%"></span><i class="rv-now" style="left:${at}%"></i></div>
           <div class="row between mono" style="font-size:12px"><span>${fmtAmt(p.price.lower)}</span><span class="muted">now ${fmtAmt(p.price.now)}</span><span>${fmtAmt(p.price.upper)}</span></div>
           <dl class="kv" style="margin-top:12px"><dt>Liquidity</dt><dd>${fmtAmt(p.amount0)} ${esc(p.token0.symbol)} + ${fmtAmt(p.amount1)} ${esc(p.token1.symbol)}<br><small class="muted">${usd(p.valueUsd)}</small></dd>
@@ -446,7 +445,7 @@ async function positionsView() {
 
 function live(q) {
   const kind = ["trending", "top", "new"].includes(q.get("kind")) ? q.get("kind") : "trending";
-  view.innerHTML = head(`Onchain <em>live</em>`, "Every pool on Robinhood Chain, straight from the chain's DEXes: Uniswap v3/v4, Pons, Long, Bankr, Virtuals and more. Refreshes on its own.",
+  view.innerHTML = head(`Onchain <em>live</em>`, "Every pool on Solana, straight from its DEXes and launchpads: Raydium, LaunchLab, pump.fun, PumpSwap, Meteora, Orca and more. Refreshes on its own.",
     `<div class="row"><span class="block-pill"><i class="live-dot"></i><span id="liveUpd">live</span></span><div class="tabs" id="kindTabs">${[["trending", "Trending"], ["top", "Top volume"], ["new", "New pairs"]].map(([k, l]) => `<button data-k="${k}" class="${k === kind ? "on" : ""}">${l}</button>`).join("")}</div></div>`)
     + `<div class="card"><div id="liveTable"><div class="skeleton"></div></div></div>`;
   $("#kindTabs").onclick = (e) => { const b = e.target.closest("button"); if (b) location.hash = `#/live?kind=${b.dataset.k}`; };
@@ -455,7 +454,7 @@ function live(q) {
 }
 
 function newPairs() {
-  view.innerHTML = head(`New <em>pairs</em>`, "The newest pools on Robinhood Chain, seconds after they appear. Run the Checkpoint before you touch any of them.",
+  view.innerHTML = head(`New <em>pairs</em>`, "The newest pools on Solana, seconds after they appear: pump.fun, LaunchLab and more. Run the Checkpoint before you touch any of them.",
     `<span class="block-pill"><i class="live-dot"></i><span id="newUpd">live</span></span>`)
     + `<div class="card"><div id="newTable"><div class="skeleton"></div></div></div>`;
   const load = async () => { const r = await loadPools($("#newTable"), "new", 30, { showAge: true }); if (r) $("#newUpd").textContent = `updated ${new Date(r.updatedAt).toLocaleTimeString()}`; };
@@ -463,10 +462,10 @@ function newPairs() {
 }
 
 function stocksView() {
-  view.innerHTML = head(`Tokenized <em>stocks</em>`, "Stocks and ETFs on Robinhood Chain with prices from their on-chain pools. Buy any of them with ETH or USDG.")
-    + `<div class="card"><div class="row between" style="margin-bottom:12px"><input id="stockFilter" placeholder="Filter: NVDA, Tesla, ETF…" style="max-width:280px"><span class="muted" id="stockCount" style="font-size:13px"></span></div><div id="stockTable"><div class="skeleton"></div></div></div>`;
+  view.innerHTML = head(`Tokenized <em>stocks</em>`, "xStocks: tokenized stocks and ETFs on Solana. Buy any of them with SOL or USDC.")
+    + `<div class="card"><div class="row between" style="margin-bottom:12px"><input id="stockFilter" placeholder="Filter: NVDAx, Tesla, ETF…" style="max-width:280px"><span class="muted" id="stockCount" style="font-size:13px"></span></div><div id="stockTable"><div class="skeleton"></div></div></div>`;
   // Names and logos are known up front; prices fill in when they arrive.
-  let rows = (state.chains.find((c) => c.key === "robinhood")?.stocks || []).map((s) => ({ ...s, priceUsd: null, change24hPct: null, volume24hUsd: null }));
+  let rows = (state.tokens?.stocks || []).map((s) => ({ ...s, priceUsd: null, change24hPct: null, volume24hUsd: null }));
   const render = () => {
     const f = $("#stockFilter").value.trim().toLowerCase();
     const list = rows.filter((s) => !f || s.symbol.toLowerCase().includes(f) || s.name.toLowerCase().includes(f));
@@ -474,7 +473,7 @@ function stocksView() {
     $("#stockTable").innerHTML = `<div class="table-wrap"><table><thead><tr><th>Stock</th><th class="num">Price</th><th class="num">24h</th><th class="num">Volume</th><th class="num"></th></tr></thead><tbody>${list.map((s) => `
       <tr class="clickable" data-token="${esc(s.address)}"><td><div class="token-cell">${avatar(s.symbol, s.address)}<div><b>${esc(s.symbol)}</b><small>${esc(s.name)}</small></div></div></td>
       <td class="num">${fmtPrice(s.priceUsd)}</td><td class="num">${signed(s.change24hPct)}</td><td class="num">${usd(s.volume24hUsd)}</td>
-      <td class="num"><a class="btn sm" href="#/swap?in=ETH&out=${esc(s.symbol)}" onclick="event.stopPropagation()">Buy</a></td></tr>`).join("")}</tbody></table></div>`;
+      <td class="num"><a class="btn sm" href="#/swap?in=SOL&out=${esc(s.symbol)}" onclick="event.stopPropagation()">Buy</a></td></tr>`).join("")}</tbody></table></div>`;
     bindTokenRows($("#stockTable"));
   };
   const load = async () => {
@@ -491,26 +490,26 @@ async function tokenView(q) {
   view.innerHTML = `<div id="tokHead"><div class="skeleton" style="width:240px;height:34px"></div></div>
     <div class="grid" style="margin-top:22px">
       <div class="span-7 stack"><div class="card"><div class="panel-head"><span class="panel-title">Pools</span></div><div id="tokPools"><div class="skeleton"></div></div></div></div>
-      <div class="span-5 stack"><div class="card"><div class="panel-head"><span class="panel-title">Checkpoint</span><span class="muted" style="font-size:12px">test buy & sell from ETH</span></div><div id="tokCheck"><span class="spinner"></span> Checking…</div></div></div>
+      <div class="span-5 stack"><div class="card"><div class="panel-head"><span class="panel-title">Checkpoint</span><span class="muted" style="font-size:12px">test buy & sell from SOL</span></div><div id="tokCheck"><span class="spinner"></span> Checking…</div></div></div>
     </div>`;
   try {
     const t = await api(`/tools/onchain_token?address=${encodeURIComponent(address)}`);
     const m = t.main;
     $("#tokHead").innerHTML = `<div class="page-head" style="margin:0"><div class="token-hero">${avatar(t.token?.symbol, address, t.token?.image)}<div><h1>${esc(t.token?.symbol || short(address))}</h1><span class="muted">${esc(t.token?.name || "")} · <span class="mono">${esc(short(address))}</span></span></div></div>
       <div class="row">${m ? `<div style="text-align:right"><div class="price-big">${fmtPrice(m.priceUsd)}</div><div>${signed(m.change.h24)} <span class="muted">24h</span></div></div>` : ""}
-      <a class="btn primary" href="#/swap?in=ETH&out=${esc(address)}">Swap</a><a class="btn ghost" href="${esc(t.explorer)}" target="_blank" rel="noopener">Explorer ↗</a></div></div>
+      <a class="btn primary" href="#/swap?in=SOL&out=${esc(address)}">Swap</a><a class="btn ghost" href="${esc(t.explorer)}" target="_blank" rel="noopener">Explorer ↗</a></div></div>
       ${t.totals ? `<div class="stats" style="margin-top:20px">${[["Volume 24h", usd(t.totals.volume24hUsd), `across ${t.totals.pools} pool${t.totals.pools > 1 ? "s" : ""}`], ["Liquidity", usd(t.totals.liquidityUsd), "all pools"], ["FDV", usd(m.fdvUsd), m.marketCapUsd ? `mcap ${usd(m.marketCapUsd)}` : ""], ["Txns 24h", `<span class="up">${t.totals.buys24h.toLocaleString("en-US")}</span><span class="faint"> / </span><span class="down">${t.totals.sells24h.toLocaleString("en-US")}</span>`, "buys / sells"]].map(([k, v, s]) => `<div class="card stat"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("")}</div>` : ""}`;
     $("#tokPools").innerHTML = t.pools.length ? poolRows(t.pools) : `<div class="empty">No pools found for this token.</div>`;
   } catch (e) { $("#tokHead").innerHTML = errorBox(e); $("#tokPools").innerHTML = ""; }
   try {
-    const r = await api(`/tools/check_token?${new URLSearchParams({ chain: "robinhood", address })}`);
+    const r = await api(`/tools/check_token?${new URLSearchParams({ address })}`);
     $("#tokCheck").innerHTML = checkpointHtml(r) + (r.health?.flags?.length ? `<div style="margin-top:14px">${r.health.flags.map((f) => `<div style="padding:4px 0"><span class="tag ${f.severity === "info" ? "info" : f.severity}">${esc(f.severity)}</span> ${esc(f.text)}</div>`).join("")}</div>` : "");
   } catch (e) { $("#tokCheck").innerHTML = errorBox(e); }
 }
 
 function swap(q) {
-  const chain = state.chains.find((c) => c.key === "robinhood");
-  view.innerHTML = head(`Swap`, `On Robinhood Chain. Routes from KyberSwap; the ticket is re-checked on the live pool right before you sign.`)
+  const chain = state.tokens;
+  view.innerHTML = head(`Swap`, `On Solana. Routes from Jupiter; the ticket is re-checked on the live pool right before you sign.`)
     + `<div class="grid">
       <form class="card span-5 swap-card" id="swapForm" autocomplete="off">
         <div class="leg"><label for="sAmt">You pay</label><div class="leg-row"><input class="amt" id="sAmt" inputmode="decimal" value="${esc(q.get("amount") || "0.01")}" pattern="[0-9]*[.]?[0-9]+" required aria-label="Amount">
@@ -526,11 +525,7 @@ function swap(q) {
     </div>`;
 
   // ---- the token list: base tokens, every tokenized stock, and today's trending coins ----
-  const base = [
-    { symbol: "ETH", name: "Ether", address: chain.tokenAddresses.ETH, group: "Tokens" },
-    { symbol: "WETH", name: "Wrapped Ether", address: chain.tokenAddresses.WETH, group: "Tokens" },
-    { symbol: "USDG", name: "Global Dollar", address: chain.tokenAddresses.USDG, group: "Tokens" },
-  ];
+  const base = chain.base.map((t) => ({ symbol: t.symbol, name: t.name, address: t.address, image: t.icon && /^https:/.test(t.icon) ? t.icon : null, group: "Tokens" }));
   const stocks = chain.stocks.map((s) => ({ symbol: s.symbol, name: s.name, address: s.address, group: "Stocks", stock: true }));
   let coins = [], prices = {};
   const all = () => [...base, ...stocks, ...coins];
@@ -539,12 +534,12 @@ function swap(q) {
     return () => {
       if (started) return; started = true;
       api("/tools/onchain_pools?kind=trending&limit=25").then((r) => {
-        const seen = new Set(all().map((t) => t.address.toLowerCase()));
-        coins = r.pools.filter((p) => p.token.address && !seen.has(p.token.address.toLowerCase()) && !seen.add(p.token.address.toLowerCase()))
+        const seen = new Set(all().map((t) => t.address));
+        coins = r.pools.filter((p) => p.token.address && !seen.has(p.token.address) && !seen.add(p.token.address))
           .map((p) => ({ symbol: p.token.symbol, name: p.token.name || p.dex, address: p.token.address, image: p.token.image, group: "Trending coins", priceUsd: p.priceUsd, change: p.change.h24 }));
         picker?.refresh();
       }).catch(() => {});
-      api("/tools/stock_prices").then((r) => { r.stocks.forEach((s) => (prices[s.address.toLowerCase()] = s)); picker?.refresh(); }).catch(() => {});
+      api("/tools/stock_prices").then((r) => { r.stocks.forEach((s) => (prices[s.address] = s)); picker?.refresh(); }).catch(() => {});
     };
   })();
 
@@ -553,9 +548,9 @@ function swap(q) {
   const findBy = (v) => {
     v = String(v || "").trim();
     if (!v) return null;
-    const hit = all().find((t) => t.symbol.toUpperCase() === v.toUpperCase() || t.address.toLowerCase() === v.toLowerCase());
+    const hit = all().find((t) => t.symbol.toUpperCase() === v.toUpperCase() || t.address === v || (t.stock && t.symbol.toUpperCase() === v.toUpperCase() + "X"));
     if (hit) return hit;
-    return /^0x[0-9a-fA-F]{40}$/.test(v) ? { symbol: short(v), name: "Token by address", address: v, group: "Address" } : null;
+    return isMint(v) ? { symbol: short(v), name: "Token by mint address", address: v, group: "Address" } : null;
   };
   const paint = (side) => {
     const el = $(side === "in" ? "#pickIn" : "#pickOut"), t = pick[side];
@@ -563,8 +558,8 @@ function swap(q) {
     el.querySelector(".tok-sym").textContent = t ? t.symbol : "Select";
   };
   const choose = (side, t) => { pick[side] = t; paint(side); $("#outAmt").textContent = "—"; };
-  choose("in", findBy(q.get("in") || "ETH"));
-  choose("out", findBy(q.get("out") || "USDG"));
+  choose("in", findBy(q.get("in") || "SOL"));
+  choose("out", findBy(q.get("out") || "USDC"));
 
   // ---- dropdown ----
   let picker = null;
@@ -575,23 +570,23 @@ function swap(q) {
     host.querySelector(".tok-btn").setAttribute("aria-expanded", "true");
     const pop = document.createElement("div");
     pop.className = "tok-pop";
-    pop.innerHTML = `<input class="tok-search" placeholder="Search name, symbol or paste 0x…" aria-label="Search tokens"><div class="tok-list" role="listbox"></div>`;
+    pop.innerHTML = `<input class="tok-search" placeholder="Search name, symbol or paste a mint…" aria-label="Search tokens"><div class="tok-list" role="listbox"></div>`;
     host.append(pop);
     const input = pop.querySelector(".tok-search"), list = pop.querySelector(".tok-list");
     let items = [], active = 0;
     const render = () => {
       const f = input.value.trim().toLowerCase();
-      items = all().filter((t) => !f || t.symbol.toLowerCase().includes(f) || (t.name || "").toLowerCase().includes(f) || t.address.toLowerCase() === f);
-      if (/^0x[0-9a-f]{40}$/.test(f) && !items.length) items = [{ symbol: short(input.value.trim()), name: "Use this contract address", address: input.value.trim(), group: "Address" }];
+      items = all().filter((t) => !f || t.symbol.toLowerCase().includes(f) || (t.name || "").toLowerCase().includes(f) || t.address.toLowerCase() === f || (t.ticker || "").toLowerCase().includes(f));
+      if (isMint(input.value.trim()) && !items.length) items = [{ symbol: short(input.value.trim()), name: "Use this mint address", address: input.value.trim(), group: "Address" }];
       active = Math.min(active, Math.max(0, items.length - 1));
       let group = "";
       list.innerHTML = items.length ? items.map((t, i) => {
-        const pr = t.stock ? prices[t.address.toLowerCase()] : t;
+        const pr = t.stock ? prices[t.address] : t;
         const g = t.group !== group ? `<div class="tok-group">${esc((group = t.group))}${t.group === "Trending coins" && !coins.length ? "" : ""}</div>` : "";
         return `${g}<button type="button" class="tok-item${i === active ? " on" : ""}" data-i="${i}" role="option">${avatar(t.symbol, t.address, t.image, { stock: t.stock })}
           <span class="tok-name"><b>${esc(t.symbol)}</b><small>${esc(t.name || "")}</small></span>
           <span class="tok-price">${pr?.priceUsd != null ? fmtPrice(pr.priceUsd) : ""}${(pr?.change24hPct ?? pr?.change) != null ? `<br>${signed(pr.change24hPct ?? pr.change)}` : ""}</span></button>`;
-      }).join("") + (coins.length ? "" : `<div class="tok-group muted">Trending coins load in a moment…</div>`) : `<div class="tok-empty">No match. Paste a token contract address (0x…) to use any coin on Robinhood Chain.</div>`;
+      }).join("") + (coins.length ? "" : `<div class="tok-group muted">Trending coins load in a moment…</div>`) : `<div class="tok-empty">No match. Paste a token mint address to use any coin on Solana.</div>`;
       list.querySelectorAll(".tok-item").forEach((b) => (b.onclick = () => { choose(side, items[Number(b.dataset.i)]); closePicker(); }));
     };
     input.oninput = () => { active = 0; render(); };
@@ -620,14 +615,14 @@ function swap(q) {
   let slip = 1;
   $("#slip").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; slip = Number(b.dataset.s); $("#slip").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); };
   $("#flip").onclick = () => { const a = pick.in; choose("in", pick.out); choose("out", a); };
-  view.querySelectorAll("[data-stock]").forEach((b) => (b.onclick = () => { choose("in", findBy("ETH")); choose("out", findBy(b.dataset.stock)); }));
+  view.querySelectorAll("[data-stock]").forEach((b) => (b.onclick = () => { choose("in", findBy("SOL")); choose("out", findBy(b.dataset.stock)); }));
   $("#swapForm").onsubmit = async (e) => {
     e.preventDefault();
     if (!pick.in || !pick.out) { toast("Pick both tokens first"); return; }
     const out = $("#swapOut");
     out.innerHTML = `<div class="card"><span class="spinner"></span>&nbsp; Running the Checkpoint on the live pool…</div>`;
     const ref = (t) => (t.group === "Tokens" || t.stock ? t.symbol : t.address);
-    const args = { chain: "robinhood", tokenIn: ref(pick.in), tokenOut: ref(pick.out), amount: $("#sAmt").value.trim(), slippagePct: slip };
+    const args = { tokenIn: ref(pick.in), tokenOut: ref(pick.out), amount: $("#sAmt").value.trim(), slippagePct: slip };
     try {
       if (!state.address) {
         const g = await api(`/tools/quote_swap?${new URLSearchParams(args)}`);
@@ -653,20 +648,20 @@ function quoteHead(s) {
 function check(q) {
   view.innerHTML = head(`Checkpoint`, `Paste a token contract on ${esc(chainName())}. Glidy reads its bytecode and runs a test buy and a test sell: the same checks that run before every swap. A heuristic, not an audit.`)
     + `<form class="card row" id="checkForm" style="margin-bottom:18px">
-      <input id="addr" placeholder="0x… token contract" style="flex:1;min-width:220px" value="${esc(q.get("address") || "")}" pattern="0x[0-9a-fA-F]{40}" required>
+      <input id="addr" placeholder="Token mint address" style="flex:1;min-width:220px" value="${esc(q.get("address") || "")}" pattern="[1-9A-HJ-NP-Za-km-z]{32,44}" required>
       <button class="btn primary" type="submit">Run checks</button>
     </form><div id="checkOut"></div>`;
   const run = async () => {
     const out = $("#checkOut"), a = $("#addr").value.trim();
     out.innerHTML = `<div class="card"><span class="spinner"></span>&nbsp; Checking…</div>`;
     try {
-      const r = await api(`/tools/check_token?${new URLSearchParams({ chain: "robinhood", address: a })}`);
+      const r = await api(`/tools/check_token?${new URLSearchParams({ address: a })}`);
       out.innerHTML = `<div class="card">
         <div class="panel-head"><div class="token-cell">${avatar(r.swap?.tokenOut?.symbol, a)}<div><b style="font-size:18px">${esc(r.swap?.tokenOut?.symbol || "Token")}</b><small class="mono">${esc(short(a))}</small></div></div>
         ${r.health ? `<span class="mono muted">score <b style="color:var(--text)">${r.health.score}</b>/100</span>` : ""}</div>
         ${checkpointHtml(r)}
         ${r.health?.flags?.length ? `<div style="margin-top:16px">${r.health.flags.map((f) => `<div style="padding:4px 0"><span class="tag ${f.severity === "info" ? "info" : f.severity}">${esc(f.severity)}</span> ${esc(f.text)}</div>`).join("")}</div>` : ""}
-        <div class="row" style="margin-top:16px"><a class="btn primary" href="#/swap?in=ETH&out=${esc(a)}">Swap into it</a>${state.chain === "robinhood" ? `<a class="btn ghost" href="#/token?address=${esc(a)}">Market data →</a>` : ""}</div>
+        <div class="row" style="margin-top:16px"><a class="btn primary" href="#/swap?in=SOL&out=${esc(a)}">Swap into it</a><a class="btn ghost" href="#/token?address=${esc(a)}">Market data →</a></div>
       </div>`;
     } catch (e) { out.innerHTML = errorBox(e); }
   };
@@ -675,18 +670,18 @@ function check(q) {
 }
 
 async function portfolio() {
-  if (!state.address) { view.innerHTML = head(`Portfolio`, "") + `<div class="card empty">Connect a wallet to see what it holds on Robinhood Chain.</div>`; return; }
-  view.innerHTML = head(`Portfolio`, `Read live from Robinhood Chain for <span class="mono">${esc(short(state.address))}</span>.`) + `<div id="pf"><div class="card"><span class="spinner"></span></div></div>`;
+  if (!state.address) { view.innerHTML = head(`Portfolio`, "") + `<div class="card empty">Connect a wallet to see what it holds on Solana.</div>`; return; }
+  view.innerHTML = head(`Portfolio`, `Read live from Solana for <span class="mono">${esc(short(state.address))}</span>.`) + `<div id="pf"><div class="card"><span class="spinner"></span></div></div>`;
   try {
     const p = await api(`/tools/get_portfolio`);
     $("#pf").innerHTML = `<div class="stats" style="grid-template-columns:repeat(3,1fr)">
         <div class="card stat"><div class="k">Total value</div><div class="v">${usd(p.totalUsd)}</div><div class="s">known tokens</div></div>
-        <div class="card stat"><div class="k">Positions</div><div class="v">${p.holdings.length}</div><div class="s">ETH, USDG and stocks</div></div>
-        <div class="card stat"><div class="k">Network</div><div class="v" style="font-size:20px">Robinhood Chain</div><div class="s">chain 4663</div></div></div>
+        <div class="card stat"><div class="k">Positions</div><div class="v">${p.holdings.length}</div><div class="s">SOL and every token</div></div>
+        <div class="card stat"><div class="k">Network</div><div class="v" style="font-size:20px">Solana</div><div class="s">mainnet</div></div></div>
       <div class="card">${p.holdings.length ? `<div class="table-wrap"><table><thead><tr><th>Asset</th><th class="num">Amount</th><th class="num">Price</th><th class="num">Value</th><th class="num"></th></tr></thead><tbody>${p.holdings.map((h) => `
         <tr><td><div class="token-cell">${avatar(h.symbol, h.address)}<div><b>${esc(h.symbol)}</b><small>${esc(h.name || (h.stock ? "Tokenized stock" : ""))}</small></div></div></td>
         <td class="num">${h.amount.toLocaleString("en-US", { maximumFractionDigits: 6 })}</td><td class="num">${fmtPrice(h.priceUsd)}</td><td class="num">${usd(h.valueUsd)}</td>
-        <td class="num"><a class="btn sm" href="#/swap?in=${esc(h.symbol)}&out=${h.symbol === "USDG" ? "ETH" : "USDG"}">Trade</a></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Nothing found among ETH, WETH, USDG and tokenized stocks.</div>`}
+        <td class="num"><a class="btn sm" href="#/swap?in=${esc(h.address)}&out=${h.symbol === "USDC" ? "SOL" : "USDC"}">Trade</a></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No balances found in this wallet.</div>`}
         <p class="muted" style="font-size:12.5px;margin:14px 0 0">${esc(p.note)}</p></div>`;
   } catch (e) { $("#pf").innerHTML = errorBox(e); }
 }
@@ -719,7 +714,7 @@ async function journal() {
   const rows = await api("/journal?limit=100");
   view.innerHTML = head(`Journal`, "Every prepare, block, build and sent transaction, with its reason.") + `<div class="card">${rows.length ? `<div class="table-wrap"><table><thead><tr><th>When</th><th>Stage</th><th>Outcome</th><th>Trade</th><th>Detail</th></tr></thead><tbody>${rows.map((r) => `
     <tr><td class="mono" style="white-space:nowrap">${esc(new Date(r.at).toLocaleString())}</td><td>${esc(r.stage)}</td><td><span class="tag ${r.outcome === "blocked" ? "fail" : r.outcome === "sent" ? "pass" : "info"}">${esc(r.outcome)}</span></td>
-    <td>${!r.params ? "" : r.params.action === "lp_add" ? esc(`Add ${r.params.amount} ${r.params.token} to ${short(r.params.pool)} ±${r.params.widthPct}%`) : r.params.action === "lp_collect" ? esc(`Collect fees #${r.params.tokenId}`) : r.params.action === "lp_remove" ? esc(`Remove ${r.params.pct}% of #${r.params.tokenId}`) : esc(`${r.params.amount} ${short(r.params.tokenIn)} → ${short(r.params.tokenOut)} (${r.params.chain})`)}</td>
+    <td>${!r.params ? "" : r.params.action === "lp_add" ? esc(`Add ${r.params.amount} ${r.params.token} to ${short(r.params.pool)} ±${r.params.widthPct}%`) : r.params.action === "lp_collect" ? esc(`Collect fees ${short(r.params.tokenId)}`) : r.params.action === "lp_remove" ? esc(`Remove ${r.params.pct}% of ${short(r.params.tokenId)}`) : esc(`${r.params.amount} ${short(r.params.tokenIn)} → ${short(r.params.tokenOut)} (${r.params.chain})`)}</td>
     <td class="muted">${r.hash ? `<code>${esc(short(r.hash))}</code>` : esc(r.reason || r.gateStatus || "")}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Nothing yet.</div>`}</div>`;
 }
 
@@ -728,14 +723,14 @@ function apiDocs() {
   view.innerHTML = head(`API &amp; <em>MCP</em>`, "Every tool the agent uses is also a REST endpoint and an MCP tool. Read tools are public. Prepare needs an API token; execute needs the execute scope and an Idempotency-Key. New tokens start in dry-run.") + `
     <div class="grid"><div class="card span-12">
       <div class="panel-head"><span class="panel-title">Create a token (on the server)</span></div>
-      <pre class="code">npm run token -- my-laptop --owner 0xYourWallet</pre>
+      <pre class="code">npm run token -- my-laptop --owner YourSolanaAddress</pre>
       <div class="panel-head"><span class="panel-title">REST</span></div>
       <pre class="code">GET  ${esc(origin)}/api/tools
 GET  ${esc(origin)}/api/tools/list_lp_pools?sort=apr
-GET  ${esc(origin)}/api/tools/lp_positions?address=0x…
-GET  ${esc(origin)}/api/tools/check_lp?pool=0x…&amp;token=ETH&amp;amount=0.05&amp;widthPct=10
-POST ${esc(origin)}/api/tools/prepare_lp_add  x-api-key   {"pool":"0x…","token":"ETH","amount":"0.05","widthPct":10}
-POST ${esc(origin)}/api/tools/prepare_swap   x-api-key   {"tokenOut":"USDG","amount":"0.01"}
+GET  ${esc(origin)}/api/tools/lp_positions?address=&lt;wallet&gt;
+GET  ${esc(origin)}/api/tools/check_lp?pool=&lt;pool&gt;&amp;token=SOL&amp;amount=0.5&amp;widthPct=10
+POST ${esc(origin)}/api/tools/prepare_lp_add  x-api-key   {"pool":"&lt;pool&gt;","token":"SOL","amount":"0.5","widthPct":10}
+POST ${esc(origin)}/api/tools/prepare_swap   x-api-key   {"tokenOut":"USDC","amount":"0.1"}
 POST ${esc(origin)}/api/tools/execute_intent x-api-key + Idempotency-Key  {"confirmationId":"cf_…"}</pre>
       <div class="panel-head"><span class="panel-title">MCP (Claude Code)</span></div>
       <pre class="code">claude mcp add glidy --env GLIDY_URL=${esc(origin)} --env GLIDY_API_KEY=glidy_… -- node /path/to/glidy/mcp/index.mjs</pre>
@@ -754,14 +749,14 @@ function ticketCard(t) {
     const expired = t.expiresAt && Date.parse(t.expiresAt) < Date.now();
     const kindLabel = { lp_add: "Add liquidity", lp_collect: "Collect fees", lp_remove: "Remove liquidity" }[t.gate?.kind] || (s ? s.chainName : "");
     el.innerHTML = `
-      <div class="ticket-head"><span>Ticket <span class="id">${t.ok ? "#" + esc(t.ref || "") : "blocked"}</span></span><span>${esc(kindLabel)}${lp || pos ? " · Robinhood Chain" : ""}</span></div>
+      <div class="ticket-head"><span>Ticket <span class="id">${t.ok ? "#" + esc(t.ref || "") : "blocked"}</span></span><span>${esc(kindLabel)}${lp || pos ? " · Solana" : ""}</span></div>
       <div class="ticket-body">
         ${s ? quoteHead(s) : ""}
         ${lp ? `<div class="ticket-legs" style="margin-bottom:14px">
           <div class="tl"><b>${esc(lp.amount0)}</b><span class="tl-tok">${avatar(lp.token0.symbol, lp.token0.address)}${esc(lp.token0.symbol)}</span></div><div class="arrow">+</div>
           <div class="tl"><b>${esc(lp.amount1)}</b><span class="tl-tok">${avatar(lp.token1.symbol, lp.token1.address)}${esc(lp.token1.symbol)}</span></div></div>
           <p class="muted" style="margin:0 0 12px;font-size:13px">Range ±${lp.widthPct.toFixed(1)}%: ${fmtAmt(lp.price.lower)} – ${fmtAmt(lp.price.upper)} ${esc(lp.price.unit)} · ${lp.feePct}% pool${lp.valueUsd ? ` · ${usd(lp.valueUsd)}` : ""}</p>` : ""}
-        ${pos ? `<div class="row" style="margin-bottom:12px">${pair(pos.token0, pos.token1)}<b>${esc(pos.token0.symbol)} / ${esc(pos.token1.symbol)}</b><span class="muted">#${esc(pos.tokenId)}</span>${rangeTag(pos)}</div>` : ""}
+        ${pos ? `<div class="row" style="margin-bottom:12px">${pair(pos.token0, pos.token1)}<b>${esc(pos.token0.symbol)} / ${esc(pos.token1.symbol)}</b><span class="muted">${esc(short(pos.tokenId))}</span>${rangeTag(pos)}</div>` : ""}
         ${checkpointHtml(t.gate)}
         ${t.ok ? `<div class="ticket-foot">
           <span class="meta">${expired ? "Expired" : `Valid until ${new Date(t.expiresAt).toLocaleTimeString()}`}${s ? ` · slippage ${s.slippagePct}%` : ""}</span>
@@ -781,7 +776,6 @@ async function signTicket(t, render) {
     const b = await api(`/tickets/${t.id}/build`, { method: "POST", body: {} });
     if (!b.ok) { t.gate = b.gate; t.ok = false; render(); toast(b.reason); return; }
     t.gate = b.gate;
-    await ensureChain(b.chainId);
     let last;
     for (const [i, tx] of b.txs.entries()) {
       render(`<span class="spinner"></span>&nbsp; ${esc(tx.label)}: confirm in your wallet (${i + 1}/${b.txs.length})`);
@@ -792,7 +786,7 @@ async function signTicket(t, render) {
     }
     await api(`/tickets/${t.id}/sent`, { method: "POST", body: { hash: last } });
     render(`<span class="up">✓ Done</span> · <a href="${esc(b.explorer)}/tx/${esc(last)}" target="_blank" rel="noopener" style="text-decoration:underline">view transaction ↗</a>`);
-    toast(t.gate?.kind?.startsWith("lp_") ? "Done on Robinhood Chain" : "Swap confirmed");
+    toast(t.gate?.kind?.startsWith("lp_") ? "Done on Solana" : "Swap confirmed");
   } catch (e) {
     render(`<span class="down">${esc(e.message || String(e))}</span>`);
   }
@@ -809,13 +803,13 @@ const ACTIONS = [
   { q: "pools by tvl", t: "Deepest pools", s: "Safest liquidity", i: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>' },
 ];
 const TOOL_LABEL = {
-  list_lp_pools: "Ranked Uniswap v3 pools", lp_positions: "Read your positions", pool_state: "Read the pool", check_lp: "Ran the LP Checkpoint",
+  list_lp_pools: "Ranked Orca pools", lp_positions: "Read your positions", pool_state: "Read the pool", check_lp: "Ran the LP Checkpoint",
   prepare_lp_add: "Prepared a deposit ticket", prepare_lp_collect: "Prepared a collect ticket", prepare_lp_remove: "Prepared a remove ticket",
   prepare_swap: "Prepared a swap ticket", quote_swap: "Quoted a swap", check_token: "Checked the token", token_health: "Read the bytecode",
   get_portfolio: "Read your wallet", get_balance: "Read a balance", get_policy: "Read your limits", stock_prices: "Read stock prices",
   onchain_pools: "Read live pools", onchain_token: "Read the token", chain_status: "Read the chain",
 };
-const THINKING = ["Reading Robinhood Chain…", "Ranking pools by fee income…", "Checking ranges and risk…", "Putting it together…"];
+const THINKING = ["Reading Solana…", "Ranking pools by fee income…", "Checking ranges and risk…", "Putting it together…"];
 
 function openDrawer(prefill) {
   if (!state.address) { document.querySelectorAll(".nav a").forEach((x) => x.classList.remove("on")); gate("ask"); window.scrollTo(0, 0); return; }
@@ -832,9 +826,9 @@ function welcome() {
   $("#chatLog").innerHTML = `<div class="ag-hello">
     <div class="ag-orb"><img src="/img/glidy.svg" alt="" width="56" height="56"></div>
     <h3>${hour < 12 ? "gm" : hour < 18 ? "Good afternoon" : "Good evening"}, ${esc(short(state.address))}</h3>
-    <p>I'm Glidy, your LP agent on Robinhood Chain. I find pools, pick ranges, run the Checkpoint and write tickets. Your wallet has the final say.</p>
+    <p>I'm Glidy, your LP agent on Solana. I find pools, pick ranges, run the Checkpoint and write tickets. Your wallet has the final say.</p>
     <div class="ag-actions">${ACTIONS.map((a) => `<button type="button" class="ag-act" data-q="${esc(a.q)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${a.i}</svg><b>${esc(a.t)}</b><small>${esc(a.s)}</small></button>`).join("")}</div>
-    ${state.health?.llm ? "" : `<p class="ag-note">Command mode: try “add 0.05 ETH to 0x… 10%”, “collect 1234”, “rebalance 1234”.</p>`}
+    ${state.health?.llm ? "" : `<p class="ag-note">Command mode: try “best pools”, “add 0.5 SOL to &lt;pool&gt; 10%”, “my positions”.</p>`}
   </div>`;
   $("#chatLog").querySelectorAll(".ag-act").forEach((b) => (b.onclick = () => ask(b.dataset.q)));
   suggest(["best pools", "my positions", "pools by volume"]);
@@ -855,8 +849,7 @@ function richText(text, { hideLists = false } = {}) {
     if (bullet && hideLists) continue;
     let l = esc(raw.replace(/^\s*[•\-*]\s+/, ""))
       .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
-      .replace(/(0x[0-9a-fA-F]{40})/g, (a) => `<a class="addr" href="#/pool?address=${a}">${a.slice(0, 6)}…${a.slice(-4)}</a>`)
-      .replace(/(^|\s)#(\d{3,9})\b/g, '$1<span class="pid">#$2</span>');
+      .replace(/\b([1-9A-HJ-NP-Za-km-z]{32,44})\b/g, (a) => `<span class="addr" data-copy="${a}" title="Copy">${a.slice(0, 4)}…${a.slice(-4)}</span>`);
     if (bullet) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${l}</li>`; continue; }
     if (inList) { html += "</ul>"; inList = false; }
     html += l ? `<p>${l}</p>` : "";
@@ -879,7 +872,7 @@ function cardsHtml(c = {}) {
     <span class="cc-rank">${i + 1}</span>${pair(p.base, p.quote)}<span class="cc-main"><b>${esc(p.base.symbol)} / ${esc(p.quote.symbol)}</b><small>${p.feePct}% · TVL ${usd(p.tvlUsd)} · vol ${usd(p.volume24hUsd)}</small></span>
     <span class="cc-apr"><b class="apr">${pct(p.feeAprPct, 0)}</b><small>APR</small></span><span class="cc-go">Add →</span></a>`).join("")}</div>`;
   if (c.positions?.length) h += `<div class="cc-list">${c.positions.map((p) => `<div class="cc-pos">
-    <div class="row between">${pair(p.token0, p.token1)}<span class="cc-main"><b>${esc(p.token0.symbol)} / ${esc(p.token1.symbol)}</b><small>#${esc(p.tokenId)} · ${p.feePct}%</small></span>${rangeTag(p)}</div>
+    <div class="row between">${pair(p.token0, p.token1)}<span class="cc-main"><b>${esc(p.token0.symbol)} / ${esc(p.token1.symbol)}</b><small>${esc(short(p.tokenId))} · ${p.feePct}%</small></span>${rangeTag(p)}</div>
     <div class="row between cc-nums"><span><small>Value</small>${usd(p.valueUsd)}</span><span><small>Fees ready</small><b class="up">${usd(p.feesUsd)}</b></span>
     <span class="cc-btns">${p.fees0 + p.fees1 > 0 ? `<button type="button" class="btn sm primary" data-q="collect ${esc(p.tokenId)}">Collect</button>` : ""}${!p.closed && !p.inRange ? `<button type="button" class="btn sm" data-q="rebalance ${esc(p.tokenId)}">Rebalance</button>` : ""}</span></div></div>`).join("")}</div>`;
   return h;
