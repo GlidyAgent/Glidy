@@ -59,7 +59,7 @@ export function avatar(sym, address, image, opts = {}) {
   const ok = /^0x[0-9a-fA-F]{40}$/.test(String(address || ""));
   const a = ok ? address.toLowerCase() : "";
   // ETH and WETH ship with the site, so they never wait on a lookup
-  const src = ETH_LIKE.has(a) || (!ok && /^w?eth$/i.test(String(sym || ""))) ? "/img/eth.svg" : ok ? `/api/logo/${esc(a)}?s=${encodeURIComponent(String(sym || "").slice(0, 12))}${image && /^https:\/\//.test(image) ? `&u=${encodeURIComponent(image)}` : ""}` : "";
+  const src = a === "0x08f65293e33efaca2d01e4fdd6bef79ba04f5db5" ? "/img/glidy.svg" : ETH_LIKE.has(a) || (!ok && /^w?eth$/i.test(String(sym || ""))) ? "/img/eth.svg" : ok ? `/api/logo/${esc(a)}?s=${encodeURIComponent(String(sym || "").slice(0, 12))}${image && /^https:\/\//.test(image) ? `&u=${encodeURIComponent(image)}` : ""}` : "";
   // Company logos are not round artwork: fit them whole on a matching backdrop instead of cropping them.
   const stock = opts.stock ?? stockSet().has(a);
   return `<span class="avatar${stock ? " is-stock" : ""}">${letters}${src ? `<img src="${src}" alt="" loading="lazy" decoding="async"${stock ? ' onload="qFitLogo(this)"' : ""} onerror="this.remove()">` : ""}</span>`;
