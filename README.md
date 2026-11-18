@@ -1,4 +1,4 @@
-<p align="center"><img src="brand/glidy-mark-512.png" width="96" alt="Glidy"></p>
+<p align="center"><img src="public/img/glidy.svg" width="96" alt="Glidy"></p>
 
 # Glidy
 
