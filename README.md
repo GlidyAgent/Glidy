@@ -2,6 +2,8 @@
 
 # Glidy
 
+**[useglidy.xyz](https://useglidy.xyz)** · [App](https://useglidy.xyz/app/) · [X @glidyagent](https://x.com/glidyagent)
+
 **The LP agent for Robinhood Chain.** Glidy finds the best Uniswap v3 pools on Robinhood Chain (chain 4663), picks a price range around the live price, runs the **Checkpoint** on every deposit, and helps you collect fees and rebalance. Every action is a ticket you sign in your own wallet. The agent never holds a key.
 
 | Area | What runs |
